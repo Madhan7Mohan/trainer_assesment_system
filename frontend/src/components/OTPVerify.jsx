@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { createAndSendOtp, verifyStoredOtp } from "../utils/otpService";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&family=DM+Mono:wght@300;400;500&display=swap');
@@ -227,15 +228,9 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
     if (otp.length < 6) { setErrMsg("Please enter all 6 digits."); setHasErr(true); return; }
     setLoading(true); setErrMsg("");
 
-    // Verify the OTP sent by signInWithOtp — type must be "email" (not "signup")
-    const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type:  "email",
-    });
-
-    if (verifyError) {
-      setErrMsg(verifyError.message || "Invalid or expired OTP. Please try again.");
+    const otpCheck = verifyStoredOtp(email, otp);
+    if (!otpCheck.valid) {
+      setErrMsg(otpCheck.error || "Invalid or expired OTP. Please try again.");
       setHasErr(true);
       setDigits(Array(6).fill(""));
       inputRefs.current[0]?.focus();
@@ -243,9 +238,21 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
       return;
     }
 
-    // Session is confirmed — now safe to insert profile row into public.users
+    // Sign in after custom OTP validation so profile insert uses authenticated session
+    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: pendingProfile?.password || "",
+    });
+
+    if (signInError) {
+      setErrMsg(signInError.message || "OTP verified, but sign-in failed.");
+      setHasErr(true);
+      setLoading(false);
+      return;
+    }
+
     if (pendingProfile) {
-      const uid = verifyData?.user?.id || pendingProfile.id;
+      const uid = authData?.user?.id || pendingProfile.id;
       const { error: profileError } = await supabase.from("users").insert([{
         id:      uid,
         name:    pendingProfile.name,
@@ -272,12 +279,8 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
 
   const handleResend = async () => {
     setResendCD(60); setResendMsg(""); setErrMsg("");
-    // Resend uses signInWithOtp which sends a fresh 6-digit code
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-    if (error) setErrMsg("Could not resend OTP: " + error.message);
+    const { error } = await createAndSendOtp(email);
+    if (error) setErrMsg("Could not resend OTP: " + error);
     else setResendMsg("✓ A new 6-digit OTP has been sent to your email.");
   };
 

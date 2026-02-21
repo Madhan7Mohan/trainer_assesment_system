@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { createAndSendOtp } from "../utils/otpService";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&family=DM+Mono:wght@300;400;500&display=swap');
@@ -286,15 +287,11 @@ export default function Register({ onRegistered, goToLogin }) {
       return;
     }
 
-    // Step 2: Immediately send a separate OTP email via signInWithOtp
-    // This is what puts the 6-digit code in the inbox instead of a magic link
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: form.email.trim().toLowerCase(),
-      options: { shouldCreateUser: false }, // user already exists from signUp above
-    });
+    // Step 2: Send OTP using Resend
+    const { error: otpError } = await createAndSendOtp(form.email.trim().toLowerCase());
 
     if (otpError) {
-      setGlobalErr("Account created but OTP send failed: " + otpError.message);
+      setGlobalErr("Account created but OTP send failed: " + otpError);
       setLoading(false);
       return;
     }
@@ -309,6 +306,7 @@ export default function Register({ onRegistered, goToLogin }) {
       stream:  form.stream,
       college: form.college.trim(),
       dob:     form.dob,
+      password: form.password,
     });
   };
 
