@@ -4,8 +4,8 @@ import { codingQuestions, mcqQuestions } from "./data/questionBank";
 
 import Register          from "./components/Register";
 import Login             from "./components/Login";
-import TrainerDashboard  from "./components/TrainerDashboard";
-import StudentDashboard  from "./components/StudentDashboard";
+import TrainerDashboard  from "./components/Trainerdashboard";
+import StudentDashboard  from "./components/Studentdashboard";
 import AssessmentLayout  from "./components/AssessmentLayout";
 import Results           from "./components/Results";
 
