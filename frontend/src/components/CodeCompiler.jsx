@@ -1,69 +1,65 @@
 import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import {
-  Box,
-  Button,
-  Select,
-  MenuItem,
-  Typography,
-  TextField,
-  Paper,
-  CircularProgress
+  Box, Button, Select, MenuItem, Typography,
+  TextField, Paper, CircularProgress
 } from "@mui/material";
 import { keyframes } from "@mui/system";
 import { executeCode } from "../utils/judge0";
 
-/**
- * CodeCompiler
- * Props:
- *  - question:       the current coding question object
- *  - onScoreUpdate:  (score: number) => void — called when user submits
- */
+// ✅ Moved OUTSIDE the component — was inside before, causing a new object
+// reference every render, which triggered useEffect on every keystroke and
+// reset the editor content while the user was typing.
+const BOILERPLATES = {
+  python:     `# Write your solution here\n`,
+  java:       `import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        \n    }\n}`,
+  javascript: `// Write your solution here\n`,
+};
+
+const popAnimation = keyframes`
+  0%   { transform: scale(0.8); opacity: 0; }
+  50%  { transform: scale(1.1); }
+  100% { transform: scale(1);   opacity: 1; }
+`;
+
 function CodeCompiler({ question, onScoreUpdate }) {
-
-  const [language, setLanguage] = useState("python");
-  const [code, setCode] = useState("");
-  const [score, setScore] = useState(null);
-  const [passedCount, setPassedCount] = useState(0);
-  const [customInput, setCustomInput] = useState("");
+  const [language,      setLanguage]      = useState("python");
+  const [code,          setCode]          = useState(BOILERPLATES.python);
+  const [score,         setScore]         = useState(null);
+  const [passedCount,   setPassedCount]   = useState(0);
+  const [customInput,   setCustomInput]   = useState("");
   const [consoleOutput, setConsoleOutput] = useState("");
-  const [errorOutput, setErrorOutput] = useState("");
-  const [detailedTest, setDetailedTest] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [errorOutput,   setErrorOutput]   = useState("");
+  const [detailedTest,  setDetailedTest]  = useState(null);
+  const [loading,       setLoading]       = useState(false);
 
-  const boilerplates = {
-    python: `# Write your solution here\n`,
-    java: `import java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        \n    }\n}`,
-    javascript: `// Write your solution here\n`,
-  };
-
-  const popAnimation = keyframes`
-    0% { transform: scale(0.8); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 1; }
-  `;
-
-  // Reset when question changes
+  // Reset editor when question changes — no longer depends on boilerplates
   useEffect(() => {
     const saved = localStorage.getItem(`code_question_${question.id}`);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      setCode(parsed.code);
-      setLanguage(parsed.language);
+      try {
+        const parsed = JSON.parse(saved);
+        setCode(parsed.code);
+        setLanguage(parsed.language);
+      } catch {
+        setLanguage("python");
+        setCode(BOILERPLATES.python);
+      }
     } else {
       setLanguage("python");
-      setCode(boilerplates["python"]);
+      setCode(BOILERPLATES.python);
     }
     setDetailedTest(null);
     setScore(null);
     setPassedCount(0);
     setConsoleOutput("");
     setErrorOutput("");
-  }, [question.id]);
+    setCustomInput("");
+  }, [question.id]); // ✅ only question.id — no more boilerplates dependency
 
   const getLanguageId = () => {
-    if (language === "python") return 71;
-    if (language === "java") return 62;
+    if (language === "python")     return 71;
+    if (language === "java")       return 62;
     if (language === "javascript") return 63;
   };
 
@@ -79,7 +75,7 @@ function CodeCompiler({ question, onScoreUpdate }) {
       } else {
         setConsoleOutput(res.stdout || "No Output");
       }
-    } catch (e) {
+    } catch {
       setErrorOutput("Execution error. Check your code.");
     }
     setLoading(false);
@@ -93,8 +89,8 @@ function CodeCompiler({ question, onScoreUpdate }) {
     for (let i = 0; i < question.testCases.length; i++) {
       const tc = question.testCases[i];
       try {
-        const res = await executeCode(code, getLanguageId(), tc.input);
-        const actual = res.stdout?.trim() || "";
+        const res      = await executeCode(code, getLanguageId(), tc.input);
+        const actual   = res.stdout?.trim() || "";
         const expected = tc.expected.trim();
         const isPassed = actual === expected;
         if (isPassed) passed++;
@@ -114,15 +110,12 @@ function CodeCompiler({ question, onScoreUpdate }) {
     setScore(finalScore);
     setPassedCount(passed);
     setDetailedTest(firstTest);
-
-    // Notify parent layout
     if (onScoreUpdate) onScoreUpdate(finalScore);
 
     localStorage.setItem(
       `code_question_${question.id}`,
       JSON.stringify({ code, language })
     );
-
     setLoading(false);
   };
 
@@ -138,10 +131,11 @@ function CodeCompiler({ question, onScoreUpdate }) {
           value={language}
           onChange={(e) => {
             setLanguage(e.target.value);
-            setCode(boilerplates[e.target.value]);
+            setCode(BOILERPLATES[e.target.value]);
           }}
           size="small"
-          sx={{ backgroundColor: "#1e293b", borderRadius: 1, minWidth: 150, color: "#e2e8f0",
+          sx={{
+            backgroundColor: "#1e293b", borderRadius: 1, minWidth: 150, color: "#e2e8f0",
             "& .MuiSelect-icon": { color: "#94a3b8" },
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,172,193,0.3)" },
           }}
@@ -152,14 +146,14 @@ function CodeCompiler({ question, onScoreUpdate }) {
         </Select>
       </Box>
 
-      {/* Editor */}
+      {/* Monaco Editor */}
       <Paper elevation={6} sx={{ mb: 3, borderRadius: 2, overflow: "hidden", border: "1px solid rgba(0,172,193,0.15)" }}>
         <Editor
           height="380px"
           language={language}
           theme="vs-dark"
           value={code}
-          onChange={(value) => setCode(value || "")}
+          onChange={(value) => setCode(value ?? "")}
           options={{ fontSize: 14, minimap: { enabled: false }, scrollBeyondLastLine: false }}
         />
       </Paper>
@@ -186,7 +180,7 @@ function CodeCompiler({ question, onScoreUpdate }) {
           <Typography sx={{ mb: 1, color: "#00ACC1", fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>
             Output Console
           </Typography>
-          {loading && <CircularProgress size={18} sx={{ color: "#00ACC1" }} />}
+          {loading && <CircularProgress size={18} sx={{ color: "#00ACC1", mb: 1 }} />}
           <pre style={{ margin: 0, color: "#e2e8f0", fontFamily: "'DM Mono', monospace", fontSize: 13, whiteSpace: "pre-wrap" }}>
             {consoleOutput}
           </pre>
@@ -200,20 +194,12 @@ function CodeCompiler({ question, onScoreUpdate }) {
 
       {/* Action Buttons */}
       <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-        <Button
-          variant="contained"
-          onClick={runWithCustomInput}
-          disabled={loading}
-          sx={{ backgroundColor: "#0891b2", fontFamily: "'Syne', sans-serif", fontWeight: 700, borderRadius: 2 }}
-        >
+        <Button variant="contained" onClick={runWithCustomInput} disabled={loading}
+          sx={{ backgroundColor: "#0891b2", fontFamily: "'Syne', sans-serif", fontWeight: 700, borderRadius: 2 }}>
           ▶ Run Code
         </Button>
-        <Button
-          variant="contained"
-          onClick={evaluate}
-          disabled={loading}
-          sx={{ backgroundColor: "#16a34a", fontFamily: "'Syne', sans-serif", fontWeight: 700, borderRadius: 2 }}
-        >
+        <Button variant="contained" onClick={evaluate} disabled={loading}
+          sx={{ backgroundColor: "#16a34a", fontFamily: "'Syne', sans-serif", fontWeight: 700, borderRadius: 2 }}>
           ✓ Submit
         </Button>
       </Box>
@@ -229,7 +215,6 @@ function CodeCompiler({ question, onScoreUpdate }) {
           }}>
             Score: {score} / {question.marks}
           </Typography>
-
           <Typography sx={{
             fontSize: "18px", mt: 1, fontWeight: 600,
             color: passedCount === question.testCases.length ? "#22c55e" : "#facc15",
@@ -237,7 +222,6 @@ function CodeCompiler({ question, onScoreUpdate }) {
           }}>
             Passed {passedCount} / {question.testCases.length} test cases
           </Typography>
-
           <Paper sx={{
             mt: 3, p: 3, borderRadius: 2,
             backgroundColor: detailedTest.status === "Pass" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.08)",

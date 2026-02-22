@@ -1,227 +1,322 @@
-import React, { useState, useEffect, useCallback } from "react";
-import QuestionCard from "./QuestionCard";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Box, Button, Typography, Drawer, List, ListItem, ListItemButton,
+  Chip, LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions
+} from "@mui/material";
 import CodeCompiler from "./CodeCompiler";
-import MCQCard from "./MCQCard";
+import SqlCompiler from "./SqlCompiler";
+import QuestionCard from "./QuestionCard";
+import McqCard from "./McqCard";
+import { getTestQuestions, getPracticeQuestions } from "../data/questionBank";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-
-const buildTestBank = (codingQs, mcqQs) => {
-  const coding = shuffle(codingQs).slice(0, 6);
-  const mcq    = shuffle(mcqQs).slice(0, 4);
-  return shuffle([...coding, ...mcq]);
+const SECTION_CONFIG = {
+  coding:   { label: "Coding",   icon: "💻", color: "#00ACC1" },
+  aptitude: { label: "Aptitude", icon: "🧠", color: "#a78bfa" },
+  sql:      { label: "SQL",      icon: "🗄️", color: "#f97316" },
 };
 
-const fmt = (sec) => {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return `${h > 0 ? h + ":" : ""}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-};
+const DRAWER_WIDTH = 260;
+const TEST_DURATION = 80 * 60; // 80 minutes in seconds
 
-// ── styles ────────────────────────────────────────────────────────────────────
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
-  *,*::before,*::after{box-sizing:border-box;}
+export default function AssessmentLayout({ trainer, submitExam, onExitPractice }) {
+  const isPractice = trainer.mode === "practice";
 
-  .al-root{display:flex;height:100vh;background:#060a14;font-family:'DM Mono',monospace;overflow:hidden;}
-
-  /* ── left panel ── */
-  .al-left{width:42%;min-width:360px;display:flex;flex-direction:column;border-right:1px solid rgba(0,172,193,.12);overflow:hidden;}
-
-  .al-topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#080e1c;border-bottom:1px solid rgba(0,172,193,.1);flex-shrink:0;gap:8px;flex-wrap:wrap;}
-  .tb-brand{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00ACC1;}
-
-  .tb-timer{display:flex;align-items:center;gap:6px;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:600;color:#f97316;font-family:'DM Mono',monospace;transition:all .3s;}
-  .tb-timer.urgent{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:#ef4444;animation:tpulse 1s infinite;}
-  @keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4);}50%{box-shadow:0 0 0 4px rgba(239,68,68,0);}}
-
-  .tb-badge{display:flex;align-items:center;gap:5px;font-size:10px;padding:4px 11px;border-radius:20px;font-family:'DM Mono',monospace;font-weight:500;}
-  .tb-badge.practice{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;}
-  .tb-badge.test{background:rgba(0,172,193,.1);border:1px solid rgba(0,172,193,.25);color:#00ACC1;}
-
-  /* question navigator */
-  .q-nav{display:flex;gap:5px;padding:10px 14px;background:#080e1c;border-bottom:1px solid rgba(0,172,193,.08);overflow-x:auto;flex-shrink:0;scrollbar-width:thin;scrollbar-color:rgba(0,172,193,.3) transparent;}
-  .q-btn{flex-shrink:0;width:28px;height:28px;border-radius:7px;font-size:10px;font-weight:700;border:1.5px solid rgba(148,163,184,.15);background:rgba(30,41,59,.6);color:#64748b;cursor:pointer;transition:all .15s;font-family:'DM Mono',monospace;}
-  .q-btn:hover{border-color:rgba(0,172,193,.4);color:#00ACC1;}
-  .q-btn.active{border-color:#00ACC1;background:rgba(0,172,193,.15);color:#00ACC1;}
-  .q-btn.done-code{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08);color:#22c55e;}
-  .q-btn.done-mcq{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.08);color:#a78bfa;}
-  .q-btn.is-mcq{border-style:dashed;}
-
-  /* scroll area */
-  .al-qscroll{flex:1;overflow-y:auto;padding:14px;scrollbar-width:thin;scrollbar-color:rgba(0,172,193,.2) transparent;}
-
-  /* no bottom bar needed — navigation is inside each card */
-
-  /* right panel */
-  .al-right{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(0,172,193,.2) transparent;}
-
-  /* MCQ placeholder */
-  .al-mcq-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#334155;font-size:13px;text-align:center;gap:12px;padding:40px;}
-  .al-mcq-placeholder .icon{font-size:52px;}
-
-  /* Legend */
-  .al-legend{display:flex;gap:12px;padding:8px 14px;background:#080e1c;border-bottom:1px solid rgba(0,172,193,.06);flex-shrink:0;flex-wrap:wrap;}
-  .leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:#64748b;}
-  .leg-dot{width:8px;height:8px;border-radius:2px;}
-`;
-
-// ── Component ─────────────────────────────────────────────────────────────────
-export default function AssessmentLayout({
-  trainer,
-  codingQuestions,
-  mcqQuestions,
-  submitExam,
-  onExitPractice,
-}) {
-  const isTest    = trainer.mode === "test";
-  const TEST_SECS = 80 * 60;
-
+  // Build question sets once
   const [questions] = useState(() =>
-    isTest ? buildTestBank(codingQuestions, mcqQuestions) : codingQuestions
+    isPractice ? getPracticeQuestions() : getTestQuestions()
   );
 
-  const [currentIndex,  setCurrentIndex]  = useState(0);
-  const [timeLeft,      setTimeLeft]       = useState(TEST_SECS);
-  const [codingScores,  setCodingScores]   = useState({});   // { id: score }
-  const [mcqAnswers,    setMcqAnswers]     = useState({});   // { id: { selected, isCorrect } }
+  const [section,   setSection]   = useState("coding");
+  const [qIndex,    setQIndex]    = useState(0);
+  const [scores,    setScores]    = useState({});       // { [questionId]: score }
+  const [mcqAnswer, setMcqAnswer] = useState({});       // { [questionId]: selectedOption }
+  const [timeLeft,  setTimeLeft]  = useState(TEST_DURATION);
+  const [submitDlg, setSubmitDlg] = useState(false);
+  const timerRef = useRef(null);
 
-  // ── auto-submit when timer hits 0 ────────────────────────────────────────
-  const doSubmit = useCallback(() => {
-    if (!isTest) return;
-    const codingQs    = questions.filter(q => q.type === "coding");
-    const mcqQs       = questions.filter(q => q.type === "mcq");
-    const codingScore = Object.values(codingScores).reduce((a, b) => a + b, 0);
-    const mcqCorrect  = Object.values(mcqAnswers).filter(a => a.isCorrect).length;
-    const mcqScore    = mcqCorrect * 2;
-    const codingPassed= codingQs.filter(q => (codingScores[q.id] || 0) > 0).length;
-    const totalMarks  = codingQs.reduce((a, q) => a + q.marks, 0) + mcqQs.length * 2;
+  // ── handleFinalSubmit defined with useCallback BEFORE any effect that uses it ──
+  const handleFinalSubmit = useCallback(() => {
+    clearInterval(timerRef.current);
+
+    let codingScore = 0, aptScore = 0, sqlScore = 0;
+    questions.coding.forEach(q   => { codingScore += scores[q.id] || 0; });
+    questions.aptitude.forEach(q => { aptScore    += scores[q.id] || 0; });
+    questions.sql.forEach(q      => { sqlScore    += scores[q.id] || 0; });
+
+    const totalCoding = questions.coding.reduce((a, q)   => a + q.marks, 0);
+    const totalApt    = questions.aptitude.reduce((a, q) => a + q.marks, 0);
+    const totalSql    = questions.sql.reduce((a, q)      => a + q.marks, 0);
 
     submitExam({
-      codingScore, mcqScore,
-      codingPassed, mcqCorrect,
-      totalCoding: codingQs.length,
-      totalMCQ:    mcqQs.length,
-      totalMarks,
+      codingScore,
+      mcqScore:     aptScore + sqlScore,
+      codingPassed: codingScore > 0,
+      mcqCorrect:   Object.values(mcqAnswer).filter(Boolean).length,
+      totalCoding,
+      totalMCQ:     totalApt + totalSql,
+      totalMarks:   totalCoding + totalApt + totalSql,
     });
-  }, [isTest, questions, codingScores, mcqAnswers, submitExam]);
+  }, [questions, scores, mcqAnswer, submitExam]);
 
+  // Timer (test mode only)
   useEffect(() => {
-    if (!isTest) return;
-    if (timeLeft <= 0) { doSubmit(); return; }
-    const id = setInterval(() => {
-      setTimeLeft(p => {
-        if (p <= 1) { clearInterval(id); doSubmit(); return 0; }
-        return p - 1;
+    if (isPractice) return;
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) { clearInterval(timerRef.current); return 0; }
+        return t - 1;
       });
     }, 1000);
-    return () => clearInterval(id);
-  }, [isTest, doSubmit]);
+    return () => clearInterval(timerRef.current);
+  }, [isPractice]);
 
-  // ── score callbacks ───────────────────────────────────────────────────────
-  const handleCodingScore = (qId, score) =>
-    setCodingScores(p => ({ ...p, [qId]: score }));
+  // Auto-submit when timer hits 0
+  useEffect(() => {
+    if (timeLeft === 0 && !isPractice) {
+      handleFinalSubmit();
+    }
+  }, [timeLeft, isPractice, handleFinalSubmit]);
 
-  const handleMCQAnswer = (qId, selected, isCorrect) =>
-    setMcqAnswers(p => ({ ...p, [qId]: { selected, isCorrect } }));
+  const fmtTime = s =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // ── helpers ───────────────────────────────────────────────────────────────
-  const isAnswered = (q) =>
-    q.type === "mcq" ? !!mcqAnswers[q.id] : codingScores[q.id] !== undefined;
+  const currentQ  = questions[section]?.[qIndex];
+  const sectionQs = questions[section] || [];
 
-  const currentQ = questions[currentIndex];
+  const handleScoreUpdate = (id, score) => setScores(p => ({ ...p, [id]: score }));
+
+  const handleMcqSelect = (id, option) => {
+    setMcqAnswer(p => ({ ...p, [id]: option }));
+    const q = sectionQs.find(x => x.id === id);
+    if (q?.answer !== undefined) {
+      handleScoreUpdate(id, option === q.answer ? q.marks : 0);
+    }
+  };
+
+  const isAnswered = (q) => scores[q.id] !== undefined || mcqAnswer[q.id] !== undefined;
+
+  if (!currentQ) return null;
 
   return (
-    <>
-      <style>{css}</style>
-      <div className="al-root">
+    <Box sx={{ display: "flex", height: "100vh", background: "#03070f", overflow: "hidden" }}>
 
-        {/* ── LEFT PANEL ── */}
-        <div className="al-left">
+      {/* ── Sidebar ── */}
+      <Drawer variant="permanent" sx={{
+        width: DRAWER_WIDTH, flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: DRAWER_WIDTH, background: "#071020",
+          borderRight: "1px solid rgba(0,172,193,0.15)",
+          overflow: "hidden", display: "flex", flexDirection: "column"
+        }
+      }}>
+        {/* Logo */}
+        <Box sx={{ p: 2, borderBottom: "1px solid rgba(0,172,193,0.15)" }}>
+          <Typography sx={{ color: "#00ACC1", fontWeight: 800, fontFamily: "'Syne', sans-serif", fontSize: 16 }}>
+            ThopsTech {isPractice ? "Practice" : "Assessment"}
+          </Typography>
+          <Typography sx={{ color: "#64748b", fontSize: 11, mt: 0.5 }}>
+            Hi, {trainer.name?.split(" ")[0]} 👋
+          </Typography>
+        </Box>
 
-          {/* Top bar */}
-          <div className="al-topbar">
-            <span className="tb-brand">CodeArena</span>
+        {/* Timer */}
+        {!isPractice && (
+          <Box sx={{
+            px: 2, py: 1.5, borderBottom: "1px solid rgba(0,172,193,0.1)",
+            background: timeLeft < 300 ? "rgba(239,68,68,0.08)" : "transparent"
+          }}>
+            <Typography sx={{
+              color: timeLeft < 300 ? "#f87171" : "#f97316",
+              fontWeight: 700, fontSize: 20, fontFamily: "'DM Mono', monospace", textAlign: "center"
+            }}>
+              ⏱ {fmtTime(timeLeft)}
+            </Typography>
+            <LinearProgress variant="determinate" value={(timeLeft / TEST_DURATION) * 100}
+              sx={{ mt: 1, height: 4, borderRadius: 2,
+                "& .MuiLinearProgress-bar": { background: timeLeft < 300 ? "#ef4444" : "#f97316" },
+                background: "#1e293b" }} />
+          </Box>
+        )}
 
-            {isTest ? (
-              <span className={`tb-timer${timeLeft < 300 ? " urgent" : ""}`}>
-                ⏱ {fmt(timeLeft)}
-              </span>
-            ) : (
-              <span className="tb-badge practice">📚 Practice</span>
-            )}
+        {/* Section tabs */}
+        <Box sx={{ display: "flex", borderBottom: "1px solid rgba(0,172,193,0.1)" }}>
+          {Object.entries(SECTION_CONFIG).map(([key, cfg]) => (
+            <Button key={key} onClick={() => { setSection(key); setQIndex(0); }}
+              sx={{
+                flex: 1, py: 1, minWidth: 0, fontSize: 10, fontWeight: 700, borderRadius: 0,
+                color: section === key ? cfg.color : "#475569",
+                borderBottom: section === key ? `2px solid ${cfg.color}` : "2px solid transparent",
+                flexDirection: "column", gap: 0.3
+              }}>
+              <span style={{ fontSize: 16 }}>{cfg.icon}</span>
+              {cfg.label}
+            </Button>
+          ))}
+        </Box>
 
-            {isTest && <span className="tb-badge test">🎯 Test · {trainer.name}</span>}
-          </div>
-
-          {/* Legend */}
-          <div className="al-legend">
-            <span className="leg-item"><span className="leg-dot" style={{ background: "rgba(0,172,193,.6)" }} />Current</span>
-            <span className="leg-item"><span className="leg-dot" style={{ background: "rgba(34,197,94,.6)" }} />Coding done</span>
-            {isTest && <span className="leg-item"><span className="leg-dot" style={{ background: "rgba(167,139,250,.6)", borderRadius: "50%" }} />MCQ done</span>}
-            {isTest && <span className="leg-item"><span className="leg-dot" style={{ background: "transparent", border: "1.5px dashed #64748b" }} />MCQ type</span>}
-          </div>
-
-          {/* Question navigator */}
-          <div className="q-nav">
-            {questions.map((q, i) => {
-              let cls = "q-btn";
-              if (q.type === "mcq") cls += " is-mcq";
-              if (i === currentIndex) cls += " active";
-              else if (isAnswered(q)) cls += q.type === "mcq" ? " done-mcq" : " done-code";
+        {/* Question list */}
+        <Box sx={{ flex: 1, overflowY: "auto",
+          "&::-webkit-scrollbar": { width: 4 },
+          "&::-webkit-scrollbar-thumb": { background: "#1e3a4a" } }}>
+          <List dense disablePadding>
+            {sectionQs.map((q, i) => {
+              const answered = isAnswered(q);
+              const active   = i === qIndex;
               return (
-                <button key={q.id} className={cls} onClick={() => setCurrentIndex(i)}>
-                  {i + 1}
-                </button>
+                <ListItem key={q.id} disablePadding>
+                  <ListItemButton onClick={() => setQIndex(i)}
+                    sx={{
+                      py: 1, px: 2, gap: 1.5,
+                      background: active ? "rgba(0,172,193,0.1)" : "transparent",
+                      borderLeft: active ? "3px solid #00ACC1" : "3px solid transparent",
+                      "&:hover": { background: "rgba(0,172,193,0.07)" }
+                    }}>
+                    <Box sx={{
+                      width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                      background: answered ? "#16a34a" : active ? "#00ACC1" : "#1e293b",
+                      border: `1px solid ${answered ? "#16a34a" : active ? "#00ACC1" : "#334155"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: answered || active ? "#fff" : "#64748b"
+                    }}>
+                      {i + 1}
+                    </Box>
+                    <Box sx={{ overflow: "hidden" }}>
+                      <Typography sx={{
+                        fontSize: 11, color: active ? "#e2e8f0" : "#94a3b8",
+                        fontWeight: active ? 600 : 400,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                      }}>
+                        {q.title || q.question?.slice(0, 40)}
+                      </Typography>
+                      <Typography sx={{ fontSize: 10, color: "#475569" }}>{q.marks} marks</Typography>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
               );
             })}
-          </div>
+          </List>
+        </Box>
 
-          {/* Question content */}
-          <div className="al-qscroll">
-            {currentQ.type === "mcq" ? (
-              <MCQCard
-                question={currentQ}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                total={questions.length}
-                timeLeft={isTest ? timeLeft : undefined}
-                onAnswer={handleMCQAnswer}
-                savedAnswer={mcqAnswers[currentQ.id]?.selected}
-                isLast={currentIndex === questions.length - 1}
-                onFinalSubmit={isTest ? doSubmit : null}
-              />
-            ) : (
+        {/* Progress & submit */}
+        <Box sx={{ p: 2, borderTop: "1px solid rgba(0,172,193,0.1)" }}>
+          <Typography sx={{ color: "#64748b", fontSize: 11, mb: 1 }}>
+            Answered: {sectionQs.filter(isAnswered).length} / {sectionQs.length}
+          </Typography>
+          <LinearProgress variant="determinate"
+            value={(sectionQs.filter(isAnswered).length / Math.max(sectionQs.length, 1)) * 100}
+            sx={{ mb: 2, height: 4, borderRadius: 2, background: "#1e293b",
+              "& .MuiLinearProgress-bar": { background: "#00ACC1" } }} />
+          {isPractice ? (
+            <Button fullWidth variant="outlined" onClick={onExitPractice}
+              sx={{ color: "#94a3b8", borderColor: "#334155", fontSize: 12 }}>
+              ← Back to Dashboard
+            </Button>
+          ) : (
+            <Button fullWidth variant="contained" onClick={() => setSubmitDlg(true)}
+              sx={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", fontWeight: 700 }}>
+              Final Submit ✓
+            </Button>
+          )}
+        </Box>
+      </Drawer>
+
+      {/* ── Main Content ── */}
+      <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
+
+        {section === "coding" && (
+          <>
+            <Box sx={{ width: "42%", overflowY: "auto", borderRight: "1px solid rgba(0,172,193,0.1)",
+              "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { background: "#1e3a4a" } }}>
               <QuestionCard
                 question={currentQ}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                total={questions.length}
-                timeLeft={isTest ? timeLeft : undefined}
-                isLast={currentIndex === questions.length - 1}
-                onFinalSubmit={isTest ? doSubmit : null}
+                currentIndex={qIndex}
+                setCurrentIndex={setQIndex}
+                total={sectionQs.length}
+                isLast={qIndex === sectionQs.length - 1}
+                onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
               />
-            )}
-          </div>
-        </div>
+            </Box>
+            <Box sx={{ flex: 1, overflowY: "auto" }}>
+              <CodeCompiler
+                question={currentQ}
+                onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
+              />
+            </Box>
+          </>
+        )}
 
-        {/* ── RIGHT PANEL ── */}
-        <div className="al-right">
-          {currentQ.type === "mcq" ? (
-            <div className="al-mcq-placeholder">
-              <div className="icon">🧠</div>
-              <div>This is an MCQ question.<br />Answer it in the panel on the left.</div>
-            </div>
-          ) : (
-            <CodeCompiler
+        {section === "aptitude" && (
+          <Box sx={{ flex: 1, overflowY: "auto", p: 3 }}>
+            <McqCard
               question={currentQ}
-              onScoreUpdate={(score) => handleCodingScore(currentQ.id, score)}
+              currentIndex={qIndex}
+              setCurrentIndex={setQIndex}
+              total={sectionQs.length}
+              selected={mcqAnswer[currentQ.id]}
+              onSelect={(opt) => handleMcqSelect(currentQ.id, opt)}
+              isLast={qIndex === sectionQs.length - 1}
+              onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
             />
-          )}
-        </div>
+          </Box>
+        )}
 
-      </div>
-    </>
+        {section === "sql" && (
+          <>
+            <Box sx={{ width: "36%", overflowY: "auto", borderRight: "1px solid rgba(0,172,193,0.1)",
+              "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { background: "#1e3a4a" } }}>
+              <QuestionCard
+                question={{ ...currentQ, title: `SQL Q${qIndex + 1}`, description: currentQ.question, explanation: currentQ.hint }}
+                currentIndex={qIndex}
+                setCurrentIndex={setQIndex}
+                total={sectionQs.length}
+                isLast={qIndex === sectionQs.length - 1}
+                onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
+              />
+            </Box>
+            <Box sx={{ flex: 1, overflowY: "auto" }}>
+              <SqlCompiler
+                question={currentQ}
+                onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
+              />
+            </Box>
+          </>
+        )}
+      </Box>
+
+      {/* ── Final Submit Dialog ── */}
+      <Dialog open={submitDlg} onClose={() => setSubmitDlg(false)}
+        PaperProps={{ sx: { background: "#0f172a", border: "1px solid rgba(0,172,193,0.2)", borderRadius: 3 } }}>
+        <DialogTitle sx={{ color: "#f1f5f9", fontFamily: "'Syne', sans-serif" }}>
+          Submit Assessment?
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: "#94a3b8", mb: 2 }}>
+            You are about to submit your assessment. This cannot be undone.
+          </Typography>
+          {Object.entries(SECTION_CONFIG).map(([key, cfg]) => (
+            <Box key={key} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+              <Typography sx={{ color: "#64748b", fontSize: 13 }}>{cfg.icon} {cfg.label}</Typography>
+              <Typography sx={{ color: "#e2e8f0", fontSize: 13 }}>
+                {questions[key].filter(isAnswered).length} / {questions[key].length} answered
+              </Typography>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setSubmitDlg(false)} sx={{ color: "#64748b" }}>Cancel</Button>
+          <Button variant="contained" onClick={handleFinalSubmit}
+            sx={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", fontWeight: 700 }}>
+            Submit Now
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
+
+
+//signout was not working
+//sql not working
+//previous button should be more light..
+//results was not storing 
+// screenshot need to take when click on back to home after displaying the results..

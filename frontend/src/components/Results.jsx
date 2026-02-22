@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&family=DM+Mono:wght@300;400;500&display=swap');
@@ -65,8 +65,10 @@ const css = `
   .bd-item .val.g { color: #22c55e; }
   .bd-item .val.r { color: #ef4444; }
 
+  .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+
   .res-btn {
-    width: 100%; padding: 14px;
+    flex: 1; padding: 14px;
     background: linear-gradient(135deg, #00ACC1, #0891b2);
     border: none; border-radius: 12px;
     font-family: 'Cabinet Grotesk', sans-serif;
@@ -75,30 +77,163 @@ const css = `
     box-shadow: 0 4px 18px rgba(0,172,193,.25);
   }
   .res-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,172,193,.38); }
+  .res-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+  .res-btn-ghost {
+    flex: 0 0 auto; padding: 14px 18px;
+    background: rgba(148,163,184,.07);
+    border: 1px solid rgba(148,163,184,.18); border-radius: 12px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 15px; font-weight: 700; color: #94a3b8;
+    cursor: pointer; transition: all .2s;
+  }
+  .res-btn-ghost:hover { background: rgba(148,163,184,.14); color: #e2e8f0; border-color: rgba(148,163,184,.35); }
+  .res-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Screenshot overlay */
+  .screenshot-overlay {
+    position: fixed; inset: 0; background: rgba(3,7,15,.92);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; gap: 20px;
+    animation: fadeIn .25s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .screenshot-overlay img {
+    max-width: 90vw; max-height: 70vh;
+    border-radius: 16px; border: 1px solid rgba(0,172,193,.3);
+    box-shadow: 0 0 60px rgba(0,172,193,.12);
+  }
+  .screenshot-overlay-title {
+    font-family: 'Cabinet Grotesk', sans-serif; font-size: 18px; font-weight: 700;
+    color: #f1f5f9; text-align: center;
+  }
+  .screenshot-overlay-sub { font-size: 12px; color: #64748b; text-align: center; }
+  .screenshot-btn-row { display: flex; gap: 10px; }
+  .sc-btn-dl {
+    padding: 12px 24px; background: linear-gradient(135deg, #00ACC1, #0891b2);
+    border: none; border-radius: 10px; font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; transition: all .2s;
+  }
+  .sc-btn-dl:hover { transform: translateY(-1px); }
+  .sc-btn-skip {
+    padding: 12px 24px; background: rgba(148,163,184,.1);
+    border: 1px solid rgba(148,163,184,.2); border-radius: 10px;
+    font-family: 'Cabinet Grotesk', sans-serif; font-size: 14px; font-weight: 700;
+    color: #94a3b8; cursor: pointer; transition: all .2s;
+  }
+  .sc-btn-skip:hover { background: rgba(148,163,184,.18); color: #e2e8f0; }
 `;
 
+// Dynamically load html2canvas from CDN
+function loadHtml2Canvas() {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) { resolve(window.html2canvas); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    s.async = true;
+    s.onload  = () => resolve(window.html2canvas);
+    s.onerror = () => reject(new Error("Could not load html2canvas"));
+    document.head.appendChild(s);
+  });
+}
+
 export default function Results({ trainer, result, onRetake }) {
+  const cardRef   = useRef(null);
+  const [screenshot, setScreenshot] = useState(null);   // base64 data URL
+  const [capturing, setCapturing]   = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+
   const {
     codingScore, mcqScore, totalScore, percentage,
     codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks,
   } = result;
 
   const grade =
-    percentage >= 80 ? { label: "Excellent",  emoji: "🏆", color: "#facc15" } :
-    percentage >= 60 ? { label: "Good",        emoji: "👍", color: "#22c55e" } :
-    percentage >= 40 ? { label: "Average",     emoji: "📈", color: "#f97316" } :
-                       { label: "Needs Work",  emoji: "💪", color: "#ef4444" };
+    percentage >= 80 ? { label: "Excellent", emoji: "🏆", color: "#facc15" } :
+    percentage >= 60 ? { label: "Good",       emoji: "👍", color: "#22c55e" } :
+    percentage >= 40 ? { label: "Average",    emoji: "📈", color: "#f97316" } :
+                       { label: "Needs Work", emoji: "💪", color: "#ef4444" };
 
   const stream = trainer?.stream
     ? trainer.stream.charAt(0).toUpperCase() + trainer.stream.slice(1)
     : "";
 
+  // ── Take screenshot ────────────────────────────────────────────────────────
+  const captureCard = async () => {
+    if (!cardRef.current) return null;
+    try {
+      const h2c    = await loadHtml2Canvas();
+      const canvas = await h2c(cardRef.current, {
+        backgroundColor: "rgb(7,15,30)",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      console.warn("Screenshot failed:", e);
+      return null;
+    }
+  };
+
+  const downloadImage = (dataUrl) => {
+    const a = document.createElement("a");
+    a.href     = dataUrl;
+    a.download = `${trainer?.name ?? "result"}_ThopsTech_Result.png`;
+    a.click();
+  };
+
+  // ── Handle "Back to Dashboard" — capture first, then show overlay ──────────
+  const handleBack = async () => {
+    setCapturing(true);
+    const img = await captureCard();
+    setCapturing(false);
+    if (img) {
+      setScreenshot(img);
+      setShowOverlay(true);
+    } else {
+      // Screenshot failed silently — just navigate
+      onRetake();
+    }
+  };
+
+  const handleDownloadAndGo = () => {
+    if (screenshot) downloadImage(screenshot);
+    setShowOverlay(false);
+    onRetake();
+  };
+
+  const handleSkipAndGo = () => {
+    setShowOverlay(false);
+    onRetake();
+  };
+
   return (
     <>
       <style>{css}</style>
+
+      {/* ── Screenshot preview overlay ── */}
+      {showOverlay && (
+        <div className="screenshot-overlay">
+          <div className="screenshot-overlay-title">📸 Save Your Results</div>
+          <img src={screenshot} alt="Results screenshot" />
+          <div className="screenshot-overlay-sub">Download your result card before going back to the dashboard</div>
+          <div className="screenshot-btn-row">
+            <button className="sc-btn-dl" onClick={handleDownloadAndGo}>
+              ⬇ Download & Continue
+            </button>
+            <button className="sc-btn-skip" onClick={handleSkipAndGo}>
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="res-root">
         <div className="res-grid" />
-        <div className="res-card">
+
+        {/* The card we capture */}
+        <div className="res-card" ref={cardRef}>
 
           <div className="res-hero">
             <div className="res-emoji">{grade.emoji}</div>
@@ -113,18 +248,29 @@ export default function Results({ trainer, result, onRetake }) {
           </div>
 
           <div className="badge-row">
-            <span className="res-badge" style={{ background:`${grade.color}22`, color:grade.color, border:`1px solid ${grade.color}44` }}>
+            <span className="res-badge"
+              style={{ background: `${grade.color}22`, color: grade.color, border: `1px solid ${grade.color}44` }}>
               {grade.label}
             </span>
-            <span className="res-badge" style={{ background:"rgba(0,172,193,.12)", color:"#00ACC1", border:"1px solid rgba(0,172,193,.25)" }}>
+            <span className="res-badge"
+              style={{ background: "rgba(0,172,193,.12)", color: "#00ACC1", border: "1px solid rgba(0,172,193,.25)" }}>
               {percentage}%
             </span>
           </div>
 
           <div className="stats-grid">
-            <div className="stat"><div className="stat-val" style={{color:"#00ACC1"}}>{totalScore}</div><div className="stat-lbl">Total Marks</div></div>
-            <div className="stat"><div className="stat-val" style={{color:"#22c55e"}}>{codingPassed}</div><div className="stat-lbl">Coding Passed</div></div>
-            <div className="stat"><div className="stat-val" style={{color:"#a78bfa"}}>{mcqCorrect}</div><div className="stat-lbl">MCQ Correct</div></div>
+            <div className="stat">
+              <div className="stat-val" style={{ color: "#00ACC1" }}>{totalScore}</div>
+              <div className="stat-lbl">Total Marks</div>
+            </div>
+            <div className="stat">
+              <div className="stat-val" style={{ color: "#22c55e" }}>{codingPassed ? "✓" : "✗"}</div>
+              <div className="stat-lbl">Coding Passed</div>
+            </div>
+            <div className="stat">
+              <div className="stat-val" style={{ color: "#a78bfa" }}>{mcqCorrect}</div>
+              <div className="stat-lbl">MCQ Correct</div>
+            </div>
           </div>
 
           <div className="divider" />
@@ -132,16 +278,38 @@ export default function Results({ trainer, result, onRetake }) {
 
           <div className="bd-grid">
             <div className="bd-item"><span className="lbl">Coding Score</span><span className="val g">{codingScore} pts</span></div>
-            <div className="bd-item"><span className="lbl">MCQ Score</span><span className="val" style={{color:"#a78bfa"}}>{mcqScore} pts</span></div>
-            <div className="bd-item"><span className="lbl">Coding Tests</span><span className="val">{codingPassed} / {totalCoding} passed</span></div>
-            <div className="bd-item"><span className="lbl">MCQ Answers</span><span className="val">{mcqCorrect} / {totalMCQ} correct</span></div>
-            <div className="bd-item"><span className="lbl">Percentage</span><span className={`val ${percentage >= 60 ? "g" : "r"}`}>{percentage}%</span></div>
-            <div className="bd-item"><span className="lbl">Grade</span><span className="val" style={{color:grade.color}}>{grade.label}</span></div>
+            <div className="bd-item"><span className="lbl">MCQ Score</span><span className="val" style={{ color: "#a78bfa" }}>{mcqScore} pts</span></div>
+            <div className="bd-item"><span className="lbl">Coding Total</span><span className="val">{codingScore} / {totalCoding}</span></div>
+            <div className="bd-item"><span className="lbl">MCQ Answered</span><span className="val">{mcqCorrect} / {totalMCQ}</span></div>
+            <div className="bd-item">
+              <span className="lbl">Percentage</span>
+              <span className={`val ${percentage >= 60 ? "g" : "r"}`}>{percentage}%</span>
+            </div>
+            <div className="bd-item">
+              <span className="lbl">Grade</span>
+              <span className="val" style={{ color: grade.color }}>{grade.label}</span>
+            </div>
           </div>
 
-          <button className="res-btn" onClick={onRetake}>
-            ↩ Back to Dashboard
-          </button>
+          {/* Action buttons */}
+          <div className="btn-row">
+            <button className="res-btn" onClick={handleBack} disabled={capturing}>
+              {capturing ? "📸 Capturing…" : "↩ Back to Dashboard"}
+            </button>
+            <button
+              className="res-btn-ghost"
+              title="Download result card"
+              onClick={async () => {
+                setCapturing(true);
+                const img = await captureCard();
+                setCapturing(false);
+                if (img) downloadImage(img);
+              }}
+              disabled={capturing}
+            >
+              ⬇
+            </button>
+          </div>
 
         </div>
       </div>

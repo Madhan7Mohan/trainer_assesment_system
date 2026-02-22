@@ -1,3 +1,6 @@
+// src/components/OTPVerify.jsx
+// KEY CHANGE: verifyStoredOtp is now async (API call), so we await it
+
 import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { createAndSendOtp, verifyStoredOtp } from "../utils/otpService";
@@ -52,75 +55,35 @@ const css = `
   }
 
   @keyframes popIn {
-    from { opacity: 0; transform: scale(.93) translateY(20px); }
-    to   { opacity: 1; transform: scale(1)   translateY(0); }
+    from { opacity: 0; transform: scale(.94); }
+    to   { opacity: 1; transform: scale(1); }
   }
 
-  .otp-icon {
-    width: 60px; height: 60px;
-    border-radius: 16px;
-    background: rgba(0,172,193,.12);
-    border: 1px solid rgba(0,172,193,.25);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px;
-    margin: 0 auto 24px;
-    box-shadow: 0 0 24px rgba(0,172,193,.15);
-  }
+  .otp-icon { font-size: 40px; margin-bottom: 16px; }
+  .otp-title { font-family: 'Cabinet Grotesk', sans-serif; font-size: 24px; font-weight: 800; color: #f1f5f9; margin-bottom: 10px; }
+  .otp-sub { font-size: 13px; color: #64748b; line-height: 1.7; margin-bottom: 28px; }
+  .otp-email { color: #00ACC1; font-weight: 600; }
 
-  .otp-title {
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-size: 26px; font-weight: 800;
-    color: #f1f5f9;
-    margin-bottom: 8px;
-  }
-
-  .otp-sub {
-    font-size: 12px; color: #64748b;
-    line-height: 1.65; margin-bottom: 36px;
-  }
-
-  .otp-email {
-    color: #00ACC1; font-weight: 500;
-    font-family: 'DM Mono', monospace;
-  }
-
-  /* OTP input boxes */
   .otp-boxes {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-bottom: 28px;
+    display: flex; gap: 10px; justify-content: center;
+    margin-bottom: 24px;
   }
 
   .otp-box {
-    width: 52px; height: 58px;
-    background: rgba(15,23,42,.9);
-    border: 1.5px solid rgba(148,163,184,.15);
-    border-radius: 12px;
-    font-family: 'Cabinet Grotesk', sans-serif;
-    font-size: 24px; font-weight: 800;
+    width: 48px; height: 56px;
+    background: rgba(15,23,42,.8);
+    border: 1.5px solid rgba(100,116,139,.2);
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 22px; font-weight: 500;
     color: #f1f5f9;
     text-align: center;
+    transition: border-color .2s, box-shadow .2s;
     outline: none;
-    transition: border-color .2s, box-shadow .2s, transform .15s;
-    caret-color: #00ACC1;
   }
-
-  .otp-box:focus {
-    border-color: #00ACC1;
-    box-shadow: 0 0 0 3px rgba(0,172,193,.12);
-    transform: translateY(-2px);
-  }
-
-  .otp-box.filled {
-    border-color: rgba(0,172,193,.4);
-    background: rgba(0,172,193,.06);
-  }
-
-  .otp-box.err-box {
-    border-color: rgba(239,68,68,.5);
-    animation: shake .4s ease;
-  }
+  .otp-box:focus { border-color: #00ACC1; box-shadow: 0 0 0 3px rgba(0,172,193,.15); }
+  .otp-box.filled { border-color: rgba(0,172,193,.5); }
+  .otp-box.err-box { border-color: rgba(239,68,68,.6); animation: shake .3s; }
 
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
@@ -142,10 +105,7 @@ const css = `
   .otp-verify-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 7px 28px rgba(0,172,193,.38); }
   .otp-verify-btn:disabled { opacity: .45; cursor: not-allowed; }
 
-  .otp-resend {
-    font-size: 12px; color: #64748b;
-  }
-
+  .otp-resend { font-size: 12px; color: #64748b; }
   .otp-resend-btn {
     background: none; border: none;
     color: #00ACC1; cursor: pointer;
@@ -175,10 +135,7 @@ const css = `
     margin-top: 14px;
   }
 
-  .otp-countdown {
-    color: #f97316; font-weight: 600;
-    font-family: 'DM Mono', monospace;
-  }
+  .otp-countdown { color: #f97316; font-weight: 600; font-family: 'DM Mono', monospace; }
 `;
 
 export default function OTPVerify({ email, pendingProfile, onVerified }) {
@@ -190,7 +147,6 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
   const [resendMsg, setResendMsg] = useState("");
   const inputRefs = useRef([]);
 
-  // Countdown for resend
   useEffect(() => {
     if (resendCD <= 0) return;
     const id = setTimeout(() => setResendCD(p => p - 1), 1000);
@@ -228,7 +184,8 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
     if (otp.length < 6) { setErrMsg("Please enter all 6 digits."); setHasErr(true); return; }
     setLoading(true); setErrMsg("");
 
-    const otpCheck = verifyStoredOtp(email, otp);
+    // ✅ NOW ASYNC — calls /api/verify-otp on server
+    const otpCheck = await verifyStoredOtp(email, otp);
     if (!otpCheck.valid) {
       setErrMsg(otpCheck.error || "Invalid or expired OTP. Please try again.");
       setHasErr(true);
@@ -238,7 +195,7 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
       return;
     }
 
-    // Sign in after custom OTP validation so profile insert uses authenticated session
+    // Sign in with Supabase after OTP verified
     const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password: pendingProfile?.password || "",
@@ -264,7 +221,6 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
       }]);
 
       if (profileError) {
-        // Ignore duplicate key — user may be retrying after already verified
         if (!profileError.message.includes("duplicate") && !profileError.message.includes("unique")) {
           setErrMsg("Verified but profile save failed: " + profileError.message);
           setLoading(false);
@@ -301,7 +257,6 @@ export default function OTPVerify({ email, pendingProfile, onVerified }) {
             Enter it below to verify your account.
           </p>
 
-          {/* 6-box OTP input */}
           <div className="otp-boxes" onPaste={handlePaste}>
             {digits.map((d, i) => (
               <input
