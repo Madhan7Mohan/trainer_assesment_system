@@ -364,7 +364,7 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
             }}>
               ⏱ {fmtTime(timeLeft)}
             </Typography>
-            <LinearProgress variant="determinate" value={(timeLeft / TEST_DURATION) * 100}
+            <LinearProgress variant="determinate" value={(timeLeft / testDuration) * 100}
               sx={{ mt: 1, height: 4, borderRadius: 2,
                 "& .MuiLinearProgress-bar": { background: timeLeft < 300 ? "#ef4444" : "#f97316" },
                 background: "#1e293b" }} />
