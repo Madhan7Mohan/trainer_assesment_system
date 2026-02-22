@@ -17,7 +17,8 @@ const SECTION_CONFIG = {
 };
 
 const DRAWER_WIDTH      = 260;
-const TEST_DURATION     = 60 * 60;   // 60 minutes
+const TEST_DURATION_STUDENT = 75 * 60;   // 75 minutes for students
+const TEST_DURATION_TRAINER = 60 * 60;   // 60 minutes for trainers
 const MAX_TESTS         = 5;
 const WINDOW_MS         = 24 * 60 * 60 * 1000; // 24 hours in ms
 
@@ -100,6 +101,9 @@ function formatUnlockTime(unlocksAt) {
 export default function AssessmentLayout({ trainer, submitExam, onExitPractice }) {
   const isPractice = trainer.mode === "practice";
 
+  // Determine test duration based on role
+  const testDuration = trainer.role === "trainer" ? TEST_DURATION_TRAINER : TEST_DURATION_STUDENT;
+
   const [questions] = useState(() =>
     isPractice ? getPracticeQuestions() : getTestQuestions()
   );
@@ -108,7 +112,7 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
   const [qIndex,       setQIndex]       = useState(0);
   const [scores,       setScores]       = useState({});
   const [mcqAnswer,    setMcqAnswer]    = useState({});
-  const [timeLeft,     setTimeLeft]     = useState(TEST_DURATION);
+  const [timeLeft,     setTimeLeft]     = useState(isPractice ? testDuration : testDuration);
   const [submitDlg,    setSubmitDlg]    = useState(false);
 
   // Access control state
