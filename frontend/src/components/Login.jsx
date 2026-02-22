@@ -116,9 +116,9 @@ export default function Login({ onLoggedIn, goToRegister }) {
             <h1 className="lg-welcome-title">Welcome<br />back.<br /><span>Let's code.</span></h1>
             <p className="lg-welcome-desc">Log in to access your practice sessions, take timed assessments, and track your performance.</p>
             <div className="lg-stats">
-              <div className="lg-stat"><div className="lg-stat-val">20+</div><div className="lg-stat-lbl">Coding Problems</div></div>
-              <div className="lg-stat"><div className="lg-stat-val">60</div><div className="lg-stat-lbl">MCQ Questions</div></div>
-              <div className="lg-stat"><div className="lg-stat-val">80m</div><div className="lg-stat-lbl">Timed Test</div></div>
+              <div className="lg-stat"><div className="lg-stat-val">100+</div><div className="lg-stat-lbl">Coding Problems</div></div>
+              <div className="lg-stat"><div className="lg-stat-val">100+</div><div className="lg-stat-lbl">MCQ Questions</div></div>
+              <div className="lg-stat"><div className="lg-stat-val">60 min </div><div className="lg-stat-lbl">Timed Test</div></div>
             </div>
           </div>
         </div>
