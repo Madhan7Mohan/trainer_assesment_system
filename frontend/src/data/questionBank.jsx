@@ -26,9 +26,9 @@ export function shuffleArray(array) {
 // Called with NO arguments — questions are imported above
 export function getTestQuestions() {
   return {
-    coding:   shuffleArray(codingQuestions).slice(0, 10),
-    aptitude: shuffleArray(aptitudeQuestions).slice(0, 20),
-    sql:      shuffleArray(sqlQuestions).slice(0, 10),
+    coding:   shuffleArray(codingQuestions).slice(0, 5),
+    aptitude: shuffleArray(aptitudeQuestions).slice(0, 10),
+    sql:      shuffleArray(sqlQuestions).slice(0, 5),
   };
 }
 

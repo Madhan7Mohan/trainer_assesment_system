@@ -52,42 +52,46 @@ export default function Login({ onLoggedIn, goToRegister }) {
   };
 
   const handleLogin = async () => {
+    // Basic validation
     const e = {};
     if (!form.email.includes("@")) e.email    = "Valid email required";
     if (!form.password)            e.password = "Password required";
     if (Object.keys(e).length) { setErrors(e); return; }
 
-    setLoading(true); setGlobalErr("");
+    setLoading(true);
+    setGlobalErr("");
 
-    // Check if user is registered in public.users first
-    const { data: existing } = await supabase
-      .from("users").select("id").eq("email", form.email.trim().toLowerCase()).single();
-
-    if (!existing) {
-      setGlobalErr("No account found. Please register first.");
-      setLoading(false);
-      return;
-    }
-
-    // Sign in
+    // ── Step 1: Sign in via Supabase Auth ────────────────────────────────────
+    // Do NOT query the users table before auth — RLS will block it and return
+    // null even if the account exists, causing a false "No account found" error.
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email:    form.email.trim().toLowerCase(),
       password: form.password,
     });
 
     if (authError) {
-      setGlobalErr(authError.message);
+      // Supabase returns "Invalid login credentials" for wrong email/password
+      setGlobalErr("Invalid email or password. Please try again.");
       setLoading(false);
       return;
     }
 
-    // Fetch full profile
+    // ── Step 2: Fetch profile AFTER auth (RLS allows auth.uid() = id) ────────
     const { data: prof, error: profError } = await supabase
-      .from("users").select("*").eq("id", authData.user.id).single();
+      .from("users")
+      .select("*")
+      .eq("id", authData.user.id)
+      .single();
 
     if (profError || !prof) {
-      setGlobalErr("Profile not found. Please register first.");
+      // Auth succeeded but no profile row — shouldn't normally happen,
+      // but handle gracefully so user isn't locked out
+      console.warn("Profile row missing for:", authData.user.id, profError?.message);
       setLoading(false);
+      onLoggedIn(
+        { id: authData.user.id, email: authData.user.email, name: authData.user.email },
+        authData.user
+      );
       return;
     }
 
@@ -126,12 +130,26 @@ export default function Login({ onLoggedIn, goToRegister }) {
 
             <div className="lg-field">
               <label className="lg-label">Email Address</label>
-              <input className={inputCls("email")} type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
+              <input
+                className={inputCls("email")}
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={set("email")}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              />
               {errors.email && <span className="lg-err">⚠ {errors.email}</span>}
             </div>
             <div className="lg-field">
               <label className="lg-label">Password</label>
-              <input className={inputCls("password")} type="password" placeholder="Your password" value={form.password} onChange={set("password")} />
+              <input
+                className={inputCls("password")}
+                type="password"
+                placeholder="Your password"
+                value={form.password}
+                onChange={set("password")}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              />
               {errors.password && <span className="lg-err">⚠ {errors.password}</span>}
             </div>
 

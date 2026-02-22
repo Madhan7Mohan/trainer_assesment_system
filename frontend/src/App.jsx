@@ -9,30 +9,61 @@ import AssessmentLayout from "./components/AssessmentLayout";
 import Results          from "./components/Results";
 
 export default function App() {
-  const [step,    setStep]    = useState("register");
+  const [step,    setStep]    = useState("loading");
   const [profile, setProfile] = useState(null);
   const [user,    setUser]    = useState(null);
   const [mode,    setMode]    = useState(null);
   const [result,  setResult]  = useState(null);
 
-  // ── Restore session on page refresh ────────────────────────────────────────
+  // ── Helper: fetch profile from DB and update state ─────────────────────────
+  const loadProfile = async (authUser) => {
+    const { data: prof, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .single();
+
+    if (prof && !error) {
+      setUser(authUser);
+      setProfile(prof);
+      setStep("dashboard");
+    } else {
+      console.warn("Profile not found:", authUser.id, error?.message);
+      // Fallback: use auth metadata so user isn't stuck on a blank screen
+      setUser(authUser);
+      setProfile({
+        id:    authUser.id,
+        email: authUser.email,
+        name:  authUser.user_metadata?.name || authUser.email,
+      });
+      setStep("dashboard");
+    }
+  };
+
+  // ── Session restore + auth listener ───────────────────────────────────────
   useEffect(() => {
+    let initialised = false; // declared first so the listener closure can read it
+
+    // 1. Check for an existing session on mount
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const { data: prof, error } = await supabase
-          .from("users").select("*").eq("id", session.user.id).single();
-        if (prof && !error) {
-          setUser(session.user);
-          setProfile(prof);
-          setStep("dashboard");
-        }
+        await loadProfile(session.user);
+      } else {
+        setStep("login");
       }
+      initialised = true; // mark AFTER getSession resolves
     });
 
-    // Listen for auth state changes (handles token refresh, external signout, etc.)
+    // 2. Listen for future auth events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_OUT" || !session) {
+      async (event, session) => {
+        if (!initialised) return; // ignore the initial replay before getSession resolves
+
+        if (event === "SIGNED_IN" && session?.user) {
+          await loadProfile(session.user);
+        }
+
+        if (event === "SIGNED_OUT") {
           setUser(null);
           setProfile(null);
           setMode(null);
@@ -41,6 +72,7 @@ export default function App() {
         }
       }
     );
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -51,16 +83,15 @@ export default function App() {
     setStep("login");
   };
 
-  const handleLoggedIn = (prof, authUser) => {
-    setProfile(prof);
-    setUser(authUser);
-    setStep("dashboard");
+  const handleLoggedIn = async (prof, authUser) => {
+    // Always reload fresh from DB on login
+    await loadProfile(authUser);
   };
 
-  // ── Sign out (call this from Dashboard's sign-out button) ──────────────────
+  // ── Sign out ───────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    // onAuthStateChange above will clear state and redirect to login
+    // onAuthStateChange SIGNED_OUT will clear state and go to login
   };
 
   // ── Mode selection ─────────────────────────────────────────────────────────
@@ -79,35 +110,53 @@ export default function App() {
       ? Math.round((totalScore / totalMarks) * 100)
       : 0;
 
-    // Update UI immediately — don't wait for DB
+    // Update UI immediately
     setResult({
       codingScore, mcqScore, totalScore, percentage,
       codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks,
     });
     setStep("result");
 
-    // Store in Supabase — log any error so it's easy to debug
     const { error } = await supabase.from("results").insert([{
-      user_id:       user?.id       ?? null,
-      name:          profile?.name  ?? null,
-      email:         profile?.email ?? null,
-      phone:         profile?.phone ?? null,
+      user_id:       user?.id        ?? null,
+      name:          profile?.name   ?? null,
+      email:         profile?.email  ?? null,
+      phone:         profile?.phone  ?? null,
       stream:        profile?.stream ?? null,
-      mode:          mode            ?? null,
+      mode:          mode             ?? null,
       coding_score:  codingScore,
       mcq_score:     mcqScore,
       total_score:   totalScore,
       percentage,
-      coding_passed: codingPassed ? 1 : 0,   // ← DB column is INTEGER, not boolean
+      coding_passed: codingPassed ? 1 : 0,
       mcq_correct:   mcqCorrect,
     }]);
 
     if (error) {
-      console.error("❌ Failed to store result in Supabase:", error.message, error.details);
+      console.error("❌ Failed to store result:", error.message, error.details);
     } else {
       console.log("✅ Result stored successfully");
     }
   };
+
+  // ── Loading screen ─────────────────────────────────────────────────────────
+  if (step === "loading") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "#060a14",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "'DM Mono', monospace",
+        color: "#00ACC1",
+        fontSize: 13,
+        letterSpacing: 3,
+      }}>
+        LOADING...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -121,7 +170,8 @@ export default function App() {
         <Dashboard
           user={profile}
           onModeSelect={handleModeSelect}
-          onSignOut={handleSignOut}   // ← pass down to Dashboard
+          onSignOut={handleSignOut}
+          onLogout={handleSignOut}
         />
       )}
       {step === "exam" && profile && (

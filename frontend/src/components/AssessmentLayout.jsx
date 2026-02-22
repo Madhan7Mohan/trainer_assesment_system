@@ -17,7 +17,7 @@ const SECTION_CONFIG = {
 };
 
 const DRAWER_WIDTH = 260;
-const TEST_DURATION = 80 * 60; // 80 minutes in seconds
+const TEST_DURATION = 60 * 60; // 80 minutes in seconds
 
 export default function AssessmentLayout({ trainer, submitExam, onExitPractice }) {
   const isPractice = trainer.mode === "practice";
