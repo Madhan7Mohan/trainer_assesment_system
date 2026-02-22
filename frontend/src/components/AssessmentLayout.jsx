@@ -307,20 +307,23 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
         </Box>
 
         <Box sx={{ display: "flex", gap: 2, position: "relative" }}>
-          <Button
-            variant="contained"
-            onClick={() => onExitPractice("practice")}
-            sx={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", fontWeight: 700, px: 3 }}
-          >
-            Go to Practice →
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={onExitPractice}
-            sx={{ color: "#64748b", borderColor: "#334155", px: 3 }}
-          >
-            Dashboard
-          </Button>
+          {isPractice ? (
+            <Button
+              variant="contained"
+              onClick={() => onExitPractice("practice")}
+              sx={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", fontWeight: 700, px: 3 }}
+            >
+              Go to Practice →
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              onClick={() => window.location.reload()}
+              sx={{ color: "#64748b", borderColor: "#334155", px: 3 }}
+            >
+              Refresh Page
+            </Button>
+          )}
         </Box>
       </Box>
     );

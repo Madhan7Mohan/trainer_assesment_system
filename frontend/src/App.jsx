@@ -9,6 +9,20 @@ import StudentDashboard  from "./components/Studentdashboard";
 import AssessmentLayout  from "./components/AssessmentLayout";
 import Results           from "./components/Results";
 
+// ── sessionStorage helpers — remembers which page you were on ──────────────
+const SS = {
+  save:    (step, mode) => {
+    sessionStorage.setItem("tt_step", step);
+    sessionStorage.setItem("tt_mode", mode || "");
+  },
+  getStep: () => sessionStorage.getItem("tt_step"),
+  getMode: () => sessionStorage.getItem("tt_mode") || null,
+  clear:   () => {
+    sessionStorage.removeItem("tt_step");
+    sessionStorage.removeItem("tt_mode");
+  },
+};
+
 export default function App() {
   const [step,    setStep]    = useState("loading");
   const [profile, setProfile] = useState(null);
@@ -16,23 +30,41 @@ export default function App() {
   const [mode,    setMode]    = useState(null);
   const [result,  setResult]  = useState(null);
 
+  // ── Load profile then RESTORE the page the user was on ────────────────────
   const loadProfile = async (authUser) => {
     const { data: prof, error } = await supabase
       .from("users").select("*").eq("id", authUser.id).single();
-    if (prof && !error) {
-      setUser(authUser); setProfile(prof); setStep("dashboard");
-    } else {
-      setUser(authUser);
-      setProfile({ id: authUser.id, email: authUser.email, name: authUser.email, role: "student" });
+
+    const resolvedProfile = (prof && !error)
+      ? prof
+      : { id: authUser.id, email: authUser.email, name: authUser.email, role: "student" };
+
+    setUser(authUser);
+    setProfile(resolvedProfile);
+
+    // Check where user was before refresh
+    const savedStep = SS.getStep();
+    const savedMode = SS.getMode();
+
+    if (savedStep === "exam" && savedMode) {
+      // Restore exam page with same mode (answers reset — can't survive refresh)
+      setMode(savedMode);
+      setStep("exam");
+    } else if (savedStep === "dashboard") {
       setStep("dashboard");
+    } else {
+      // First login or unknown state — go to dashboard
+      setStep("dashboard");
+      SS.save("dashboard", null);
     }
   };
 
+  // ── Session restore + auth listener ───────────────────────────────────────
   useEffect(() => {
     let initialised = false;
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) await loadProfile(session.user);
-      else setStep("login");
+      else { SS.clear(); setStep("login"); }
       initialised = true;
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -40,6 +72,7 @@ export default function App() {
         if (!initialised) return;
         if (event === "SIGNED_IN"  && session?.user) await loadProfile(session.user);
         if (event === "SIGNED_OUT") {
+          SS.clear();
           setUser(null); setProfile(null); setMode(null); setResult(null);
           setStep("login");
         }
@@ -48,27 +81,54 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleRegistered = (prof, authUser) => { setProfile(prof); setUser(authUser); setStep("login"); };
-  const handleLoggedIn   = async (_prof, authUser) => { await loadProfile(authUser); };
-  const handleSignOut    = async () => { await supabase.auth.signOut(); };
-  const handleModeSelect = (m) => { setMode(m); setStep("exam"); };
-  const backToDashboard  = () => { setResult(null); setMode(null); setStep("dashboard"); };
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleRegistered = (prof, authUser) => {
+    SS.clear();
+    setProfile(prof); setUser(authUser); setStep("login");
+  };
 
+  const handleLoggedIn = async (_prof, authUser) => {
+    await loadProfile(authUser);
+  };
+
+  const handleSignOut = async () => {
+    SS.clear();
+    await supabase.auth.signOut();
+  };
+
+  const handleModeSelect = (m) => {
+    setMode(m);
+    SS.save("exam", m);   // remember: user is in exam
+    setStep("exam");
+  };
+
+  const backToDashboard = () => {
+    setResult(null); setMode(null);
+    SS.save("dashboard", null);
+    setStep("dashboard");
+  };
+
+  // ── Submit exam ────────────────────────────────────────────────────────────
   const submitExam = async (scores) => {
     const { codingScore, mcqScore, codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks } = scores;
     const totalScore = codingScore + mcqScore;
     const percentage = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0;
     setResult({ ...scores, totalScore, percentage, avgScore: totalScore, avgPercentage: percentage });
+    SS.save("result", null);
     setStep("result");
+
     const { data: inserted, error: insertError } = await supabase.from("results").insert([{
       user_id: user?.id ?? null, name: profile?.name ?? null, email: profile?.email ?? null,
       phone: profile?.phone ?? null, stream: profile?.stream ?? null, mode: mode ?? null,
       coding_score: codingScore, mcq_score: mcqScore, total_score: totalScore,
       percentage, coding_passed: codingPassed ? 1 : 0, mcq_correct: mcqCorrect,
     }]).select("id").single();
+
     if (insertError) { console.error("Insert failed:", insertError.message); return; }
+
     const { data: allRows } = await supabase.from("results")
       .select("total_score, percentage").eq("user_id", user?.id).eq("mode", "test");
+
     if (allRows?.length) {
       const avgScore      = Math.round(allRows.reduce((s,r) => s+(r.total_score||0),0)/allRows.length);
       const avgPercentage = Math.round(allRows.reduce((s,r) => s+(r.percentage||0),0)/allRows.length);
@@ -77,6 +137,7 @@ export default function App() {
     }
   };
 
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (step === "loading") return (
     <div style={{ minHeight:"100vh", background:"#060a14", display:"flex", alignItems:"center",
       justifyContent:"center", fontFamily:"'DM Mono',monospace", color:"#00ACC1", fontSize:13, letterSpacing:3 }}>

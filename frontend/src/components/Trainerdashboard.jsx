@@ -102,31 +102,28 @@ const css = `
   .quiz-score { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:#00ACC1; margin-bottom:6px; }
 `;
 
-/* ── HackerNews helpers ── */
+/* ── HackerNews via Algolia API — single request, no auth, no CORS issues ── */
 async function fetchHNStories() {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
+    // Algolia HN API: returns front-page stories in one call, no 401 issues
     const res = await fetch(
-      "https://hacker-news.firebaseio.com/v1/topstories.json",
+      "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=18",
       { signal: controller.signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const ids = await res.json();
-    const top = ids.slice(0, 20); // fetch 20, keep best 18
+    const data = await res.json();
 
-    const items = await Promise.allSettled(
-      top.map(id =>
-        fetch(`https://hacker-news.firebaseio.com/v1/item/${id}.json`, { signal: controller.signal })
-          .then(r => r.json())
-      )
-    );
-
-    return items
-      .filter(r => r.status === "fulfilled" && r.value?.title)
-      .map(r => r.value)
-      .slice(0, 18);
+    // Normalise to same shape the render expects: { title, url, score, descendants }
+    return (data.hits || []).map(h => ({
+      id:          h.objectID,
+      title:       h.title,
+      url:         h.url || null,
+      score:       h.points      || 0,
+      descendants: h.num_comments || 0,
+    }));
   } finally {
     clearTimeout(timeout);
   }
@@ -441,7 +438,7 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut }) {
                 <div className="mode-card test" onClick={() => onModeSelect("test")}>
                   <div className="mode-icon">🎯</div>
                   <div className="mode-title">Timed Test</div>
-                  <div className="mode-desc">Full 60-minute assessment. 5 coding + 10 aptitude + 5 SQL. Score is recorded.</div>
+                  <div className="mode-desc">Full 80-minute assessment. 10 coding + 20 aptitude + 10 SQL. Score is recorded.</div>
                   <button className="mode-btn btn-t">Take Test →</button>
                 </div>
               </div>
