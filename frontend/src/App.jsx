@@ -62,15 +62,45 @@ export default function App() {
   // ── Session restore + auth listener ───────────────────────────────────────
   useEffect(() => {
     let initialised = false;
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) await loadProfile(session.user);
-      else { SS.clear(); setStep("login"); }
+
+    // Safety net: if nothing resolves in 6 seconds, go to login
+    const safetyTimer = setTimeout(() => {
+      if (!initialised) {
+        console.warn("Session check timed out — redirecting to login");
+        SS.clear();
+        setStep("login");
+        initialised = true;
+      }
+    }, 6000);
+
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      clearTimeout(safetyTimer);
+      if (error) {
+        // Invalid/expired refresh token — clear everything and go to login
+        console.warn("Session error:", error.message);
+        SS.clear();
+        try { await supabase.auth.signOut(); } catch (_) {}
+        setStep("login");
+      } else if (session?.user) {
+        await loadProfile(session.user);
+      } else {
+        SS.clear();
+        setStep("login");
+      }
+      initialised = true;
+    }).catch(() => {
+      // Network error or any unhandled rejection — don't stay stuck
+      clearTimeout(safetyTimer);
+      SS.clear();
+      setStep("login");
       initialised = true;
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!initialised) return;
         if (event === "SIGNED_IN"  && session?.user) await loadProfile(session.user);
+        if (event === "TOKEN_REFRESHED" && session?.user) await loadProfile(session.user);
         if (event === "SIGNED_OUT") {
           SS.clear();
           setUser(null); setProfile(null); setMode(null); setResult(null);
@@ -78,7 +108,7 @@ export default function App() {
         }
       }
     );
-    return () => subscription.unsubscribe();
+    return () => { clearTimeout(safetyTimer); subscription.unsubscribe(); };
   }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
