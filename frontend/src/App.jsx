@@ -9,7 +9,7 @@ import StudentDashboard  from "./components/Studentdashboard";
 import AssessmentLayout  from "./components/AssessmentLayout";
 import Results           from "./components/Results";
 
-// ── sessionStorage helpers — remembers which page you were on ──────────────
+// ── sessionStorage helpers ─────────────────────────────────────────────────
 const SS = {
   save:    (step, mode) => {
     sessionStorage.setItem("tt_step", step);
@@ -23,6 +23,14 @@ const SS = {
   },
 };
 
+// ── Role guard: only route to dashboard if role is confirmed ───────────────
+function routeByRole(profile) {
+  const role = profile?.role;
+  if (role === "trainer" || role === "student") return "dashboard";
+  // Unknown role — kick back to login, don't guess
+  return "login";
+}
+
 export default function App() {
   const [step,    setStep]    = useState("loading");
   const [profile, setProfile] = useState(null);
@@ -30,30 +38,39 @@ export default function App() {
   const [mode,    setMode]    = useState(null);
   const [result,  setResult]  = useState(null);
 
-  // ── Load profile then RESTORE the page the user was on ────────────────────
+  // ── Load profile — STRICT: never fall back to a default role ──────────────
   const loadProfile = async (authUser) => {
     const { data: prof, error } = await supabase
-      .from("users").select("*").eq("id", authUser.id).single();
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .single();
 
-    const resolvedProfile = (prof && !error)
-      ? prof
-      : { id: authUser.id, email: authUser.email, name: authUser.email, role: "student" };
+    // If profile is missing or errored — sign out and show clear error
+    // Do NOT guess the role — this is the root cause of the trainer/student mix-up
+    if (error || !prof) {
+      console.warn("Profile not found for:", authUser.id, error?.message);
+      await supabase.auth.signOut();
+      SS.clear();
+      setStep("login");
+      setProfile(null);
+      setUser(null);
+      return;
+    }
 
+    // Profile loaded — role is now guaranteed from DB
     setUser(authUser);
-    setProfile(resolvedProfile);
+    setProfile(prof);
 
-    // Check where user was before refresh
+    // Restore page from sessionStorage — but ALWAYS re-validate role
     const savedStep = SS.getStep();
     const savedMode = SS.getMode();
 
     if (savedStep === "exam" && savedMode) {
-      // Restore exam page with same mode (answers reset — can't survive refresh)
       setMode(savedMode);
       setStep("exam");
-    } else if (savedStep === "dashboard") {
-      setStep("dashboard");
     } else {
-      // First login or unknown state — go to dashboard
+      // Always land on dashboard — role determines WHICH dashboard in render
       setStep("dashboard");
       SS.save("dashboard", null);
     }
@@ -63,7 +80,6 @@ export default function App() {
   useEffect(() => {
     let initialised = false;
 
-    // Safety net: if nothing resolves in 6 seconds, go to login
     const safetyTimer = setTimeout(() => {
       if (!initialised) {
         console.warn("Session check timed out — redirecting to login");
@@ -76,7 +92,6 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       clearTimeout(safetyTimer);
       if (error) {
-        // Invalid/expired refresh token — clear everything and go to login
         console.warn("Session error:", error.message);
         SS.clear();
         try { await supabase.auth.signOut(); } catch (_) {}
@@ -89,7 +104,6 @@ export default function App() {
       }
       initialised = true;
     }).catch(() => {
-      // Network error or any unhandled rejection — don't stay stuck
       clearTimeout(safetyTimer);
       SS.clear();
       setStep("login");
@@ -99,7 +113,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!initialised) return;
-        if (event === "SIGNED_IN"  && session?.user) await loadProfile(session.user);
+        if (event === "SIGNED_IN"      && session?.user) await loadProfile(session.user);
         if (event === "TOKEN_REFRESHED" && session?.user) await loadProfile(session.user);
         if (event === "SIGNED_OUT") {
           SS.clear();
@@ -112,9 +126,12 @@ export default function App() {
   }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleRegistered = (prof, authUser) => {
+  const handleRegistered = () => {
+    // After register → always go to login, never auto-login
     SS.clear();
-    setProfile(prof); setUser(authUser); setStep("login");
+    setProfile(null);
+    setUser(null);
+    setStep("login");
   };
 
   const handleLoggedIn = async (_prof, authUser) => {
@@ -128,7 +145,7 @@ export default function App() {
 
   const handleModeSelect = (m) => {
     setMode(m);
-    SS.save("exam", m);   // remember: user is in exam
+    SS.save("exam", m);
     setStep("exam");
   };
 
@@ -148,10 +165,18 @@ export default function App() {
     setStep("result");
 
     const { data: inserted, error: insertError } = await supabase.from("results").insert([{
-      user_id: user?.id ?? null, name: profile?.name ?? null, email: profile?.email ?? null,
-      phone: profile?.phone ?? null, stream: profile?.stream ?? null, mode: mode ?? null,
-      coding_score: codingScore, mcq_score: mcqScore, total_score: totalScore,
-      percentage, coding_passed: codingPassed ? 1 : 0, mcq_correct: mcqCorrect,
+      user_id:       user?.id ?? null,
+      name:          profile?.name ?? null,
+      email:         profile?.email ?? null,
+      phone:         profile?.phone ?? null,
+      stream:        profile?.stream ?? null,
+      mode:          mode ?? null,
+      coding_score:  codingScore,
+      mcq_score:     mcqScore,
+      total_score:   totalScore,
+      percentage,
+      coding_passed: codingPassed ? 1 : 0,
+      mcq_correct:   mcqCorrect,
     }]).select("id").single();
 
     if (insertError) { console.error("Insert failed:", insertError.message); return; }
@@ -167,30 +192,69 @@ export default function App() {
     }
   };
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading screen ─────────────────────────────────────────────────────────
   if (step === "loading") return (
-    <div style={{ minHeight:"100vh", background:"#060a14", display:"flex", alignItems:"center",
-      justifyContent:"center", fontFamily:"'DM Mono',monospace", color:"#00ACC1", fontSize:13, letterSpacing:3 }}>
+    <div style={{
+      minHeight: "100vh", background: "#060a14", display: "flex",
+      alignItems: "center", justifyContent: "center",
+      fontFamily: "'DM Mono',monospace", color: "#00ACC1", fontSize: 13, letterSpacing: 3
+    }}>
       LOADING...
     </div>
   );
 
+  // ── Role strictly from DB — never inferred ─────────────────────────────────
   const isTrainer = profile?.role === "trainer";
+  const isStudent = profile?.role === "student";
 
   return (
     <div>
-      {step === "register" && <Register onRegistered={handleRegistered} goToLogin={() => setStep("login")} />}
-      {step === "login"    && <Login onLoggedIn={handleLoggedIn} goToRegister={() => setStep("register")} />}
+      {step === "register" && (
+        <Register onRegistered={handleRegistered} goToLogin={() => setStep("login")} />
+      )}
+
+      {step === "login" && (
+        <Login onLoggedIn={handleLoggedIn} goToRegister={() => setStep("register")} />
+      )}
+
+      {/* ── TRAINER dashboard — only renders if role is exactly "trainer" ── */}
       {step === "dashboard" && profile && isTrainer && (
         <TrainerDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} />
       )}
-      {step === "dashboard" && profile && !isTrainer && (
+
+      {/* ── STUDENT dashboard — only renders if role is exactly "student" ── */}
+      {step === "dashboard" && profile && isStudent && (
         <StudentDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} />
       )}
-      {step === "exam" && profile && (
-        <AssessmentLayout trainer={{ ...profile, mode }} codingQuestions={codingQuestions}
-          mcqQuestions={mcqQuestions} submitExam={submitExam} onExitPractice={backToDashboard} />
+
+      {/* ── Safety: dashboard step but role is neither trainer nor student ── */}
+      {step === "dashboard" && profile && !isTrainer && !isStudent && (
+        <div style={{
+          minHeight: "100vh", background: "#060a14", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          fontFamily: "'DM Mono',monospace", color: "#f87171", gap: 16,
+        }}>
+          <div style={{ fontSize: 32 }}>⚠️</div>
+          <div style={{ fontSize: 14 }}>Account role not recognised. Please contact admin.</div>
+          <button onClick={handleSignOut} style={{
+            marginTop: 8, padding: "8px 20px", background: "#0e7490", border: "none",
+            borderRadius: 8, color: "#fff", cursor: "pointer", fontFamily: "inherit",
+          }}>
+            Sign Out
+          </button>
+        </div>
       )}
+
+      {step === "exam" && profile && (
+        <AssessmentLayout
+          trainer={{ ...profile, mode }}
+          codingQuestions={codingQuestions}
+          mcqQuestions={mcqQuestions}
+          submitExam={submitExam}
+          onExitPractice={backToDashboard}
+        />
+      )}
+
       {step === "result" && result && (
         <Results trainer={profile} result={result} onRetake={backToDashboard} />
       )}
