@@ -6,7 +6,7 @@ import {
 import CodeCompiler from "./CodeCompiler";
 import SqlCompiler from "./SqlCompiler";
 import QuestionCard from "./QuestionCard";
-import McqCard from "./McqCard";
+import McqCard from "./Mcqcard";
 import { getTestQuestions, getPracticeQuestions } from "../data/questionBank";
 
 const SECTION_CONFIG = {
