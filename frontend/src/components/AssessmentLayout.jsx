@@ -16,32 +16,278 @@ const SECTION_CONFIG = {
 };
 
 const DRAWER_WIDTH = 260;
-// Trainer = 60 min, Student = 80 min
 const getDuration = (role) => (role === "trainer" ? 60 : 80) * 60;
 
+// ── Security warning messages shown at random intervals ──────────────────────
+const SECURITY_WARNINGS = [
+  { icon: "📷", title: "Camera Check", message: "Please look directly into the camera." },
+  { icon: "🔇", title: "Noise Alert", message: "Please do not speak loudly. Stay silent during the exam." },
+  { icon: "👀", title: "Stay Focused", message: "Keep your eyes on the screen. Do not look away frequently." },
+  { icon: "🚫", title: "No Assistance", message: "Do not take help from any external source or person." },
+  { icon: "📱", title: "No Devices", message: "Keep all other devices away from your workspace." },
+  { icon: "🖥️", title: "Screen Focus", message: "Do not switch to other tabs or applications." },
+  { icon: "🤫", title: "Silence Please", message: "Maintain silence. Any noise may be flagged." },
+  { icon: "📋", title: "Original Work", message: "All answers must be your own. No copying allowed." },
+];
+
+// ── Camera permission UI styles ──────────────────────────────────────────────
+const camCss = `
+  .cam-gate {
+    min-height: 100vh; background: #03070f;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; padding: 24px;
+  }
+  .cam-card {
+    background: rgba(7,15,30,.97); border: 1px solid rgba(0,172,193,.2);
+    border-radius: 20px; padding: 40px; max-width: 480px; width: 100%;
+    text-align: center; box-shadow: 0 0 60px rgba(0,172,193,.08);
+  }
+  .cam-icon { font-size: 52px; margin-bottom: 20px; }
+  .cam-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #f1f5f9; margin-bottom: 10px; }
+  .cam-desc  { font-size: 13px; color: #64748b; line-height: 1.7; margin-bottom: 28px; }
+  .cam-video { width: 100%; border-radius: 12px; border: 2px solid rgba(0,172,193,.3); background: #0a1120; margin-bottom: 20px; max-height: 220px; object-fit: cover; }
+  .cam-btn {
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #fff;
+    cursor: pointer; transition: all .2s; margin-bottom: 10px;
+    background: linear-gradient(135deg, #00ACC1, #0891b2);
+    box-shadow: 0 4px 18px rgba(0,172,193,.25);
+  }
+  .cam-btn:hover { transform: translateY(-1px); }
+  .cam-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .cam-btn-deny {
+    width: 100%; padding: 11px; border: 1px solid rgba(239,68,68,.3);
+    border-radius: 10px; background: transparent; color: #ef4444;
+    font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer;
+    transition: all .2s;
+  }
+  .cam-btn-deny:hover { background: rgba(239,68,68,.08); }
+  .cam-err {
+    margin-top: 16px; padding: 12px 16px;
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+    border-radius: 8px; font-size: 12px; color: #f87171; line-height: 1.6;
+  }
+  .cam-status { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; font-size: 12px; }
+  .cam-status-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .cam-status-dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: camPulse 1.5s infinite; }
+  .cam-status-dot.red   { background: #ef4444; }
+  .cam-status-dot.yellow{ background: #f97316; animation: camPulse 1s infinite; }
+  @keyframes camPulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono&display=swap');
+`;
+
+// ── Security Popup ────────────────────────────────────────────────────────────
+const secCss = `
+  .sec-overlay {
+    position: fixed; inset: 0; background: rgba(3,7,15,.75);
+    z-index: 99999; display: flex; align-items: center; justify-content: center;
+    padding: 20px; backdrop-filter: blur(6px);
+    animation: secFadeIn .25s ease;
+  }
+  @keyframes secFadeIn { from{opacity:0;} to{opacity:1;} }
+  .sec-card {
+    background: #0f172a; border: 1.5px solid rgba(0,172,193,.3);
+    border-radius: 20px; padding: 36px 32px; max-width: 400px; width: 100%;
+    text-align: center; box-shadow: 0 0 80px rgba(0,172,193,.12);
+    animation: secPop .4s cubic-bezier(.16,1,.3,1);
+    font-family: 'DM Mono', monospace;
+  }
+  @keyframes secPop { from{opacity:0;transform:scale(.88);} to{opacity:1;transform:scale(1);} }
+  .sec-icon  { font-size: 48px; margin-bottom: 16px; }
+  .sec-badge {
+    display: inline-block; padding: 3px 12px; margin-bottom: 12px;
+    background: rgba(0,172,193,.12); border: 1px solid rgba(0,172,193,.25);
+    border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    color: #00ACC1; text-transform: uppercase;
+  }
+  .sec-title {
+    font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800;
+    color: #f1f5f9; margin-bottom: 10px;
+  }
+  .sec-msg { font-size: 14px; color: #94a3b8; line-height: 1.7; margin-bottom: 24px; }
+  .sec-btn {
+    width: 100%; padding: 12px; border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #fff;
+    cursor: pointer; background: linear-gradient(135deg, #00ACC1, #0891b2);
+    transition: all .2s;
+  }
+  .sec-btn:hover { filter: brightness(1.1); }
+  .sec-countdown {
+    margin-top: 12px; font-size: 11px; color: #334155;
+  }
+`;
+
+// ── Camera Gate Component ─────────────────────────────────────────────────────
+function CameraGate({ onGranted, onBlocked }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [status, setStatus] = useState("idle"); // idle | requesting | granted | denied | error
+  const [errMsg, setErrMsg] = useState("");
+
+  const requestPermission = async () => {
+    setStatus("requesting");
+    setErrMsg("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+      setStatus("granted");
+    } catch (err) {
+      setStatus("denied");
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setErrMsg("Camera and microphone access was denied. You must allow access to start the exam.");
+      } else if (err.name === "NotFoundError") {
+        setErrMsg("No camera or microphone found on this device. Please connect one to proceed.");
+      } else {
+        setErrMsg(`Could not access camera/microphone: ${err.message}`);
+      }
+    }
+  };
+
+  const handleStartExam = () => {
+    // Pass the stream so it keeps running during exam
+    onGranted(streamRef.current);
+  };
+
+  return (
+    <>
+      <style>{camCss}</style>
+      <div className="cam-gate">
+        <div className="cam-card">
+          <div className="cam-icon">
+            {status === "granted" ? "✅" : status === "denied" ? "🚫" : status === "requesting" ? "⏳" : "📷"}
+          </div>
+          <div className="cam-title">Camera & Microphone Required</div>
+          <div className="cam-desc">
+            This exam requires your camera and microphone to be active throughout the session.
+            Your video is <strong style={{ color: "#00ACC1" }}>not recorded</strong> — it is used for proctoring purposes only.
+          </div>
+
+          {status === "granted" && (
+            <>
+              <div className="cam-status">
+                <span className="cam-status-dot green" />
+                <span style={{ color: "#22c55e", fontSize: 12 }}>Camera & microphone active</span>
+              </div>
+              <video ref={videoRef} className="cam-video" muted autoPlay playsInline />
+            </>
+          )}
+
+          {status === "requesting" && (
+            <div className="cam-status">
+              <span className="cam-status-dot yellow" />
+              <span style={{ color: "#f97316", fontSize: 12 }}>Requesting permission...</span>
+            </div>
+          )}
+
+          {status === "idle" && (
+            <div className="cam-status">
+              <span className="cam-status-dot red" />
+              <span style={{ color: "#64748b", fontSize: 12 }}>Camera not active</span>
+            </div>
+          )}
+
+          {status !== "granted" && (
+            <button className="cam-btn" onClick={requestPermission} disabled={status === "requesting"}>
+              {status === "requesting" ? "⏳ Requesting Access..." : "🎥 Allow Camera & Microphone"}
+            </button>
+          )}
+
+          {status === "granted" && (
+            <button className="cam-btn" onClick={handleStartExam}>
+              ✓ Start Exam
+            </button>
+          )}
+
+          {status === "denied" && (
+            <>
+              {errMsg && <div className="cam-err">⚠ {errMsg}</div>}
+              <div className="cam-err" style={{ marginTop: 10, borderColor: "rgba(239,68,68,.4)" }}>
+                <strong>To fix:</strong> Click the camera icon in your browser's address bar and allow access, then refresh the page.
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Security Popup Component ──────────────────────────────────────────────────
+function SecurityPopup({ warning, onDismiss, autoCloseIn }) {
+  const [remaining, setRemaining] = useState(autoCloseIn || null);
+
+  useEffect(() => {
+    if (!autoCloseIn) return;
+    const interval = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) { clearInterval(interval); onDismiss(); return 0; }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoCloseIn, onDismiss]);
+
+  return (
+    <>
+      <style>{secCss}</style>
+      <div className="sec-overlay">
+        <div className="sec-card">
+          <div className="sec-icon">{warning.icon}</div>
+          <div className="sec-badge">🔒 Proctoring Alert</div>
+          <div className="sec-title">{warning.title}</div>
+          <div className="sec-msg">{warning.message}</div>
+          <button className="sec-btn" onClick={onDismiss}>
+            ✓ Understood — Continue
+          </button>
+          {remaining !== null && (
+            <div className="sec-countdown">Auto-dismissing in {remaining}s</div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main AssessmentLayout ─────────────────────────────────────────────────────
 export default function AssessmentLayout({ trainer, submitExam, onExitPractice }) {
-  const isPractice    = trainer.mode === "practice";
-  // Store duration in ref so it is always defined, even during re-renders
-  const durationRef   = useRef(getDuration(trainer.role));
+  const isPractice  = trainer.mode === "practice";
+  const durationRef = useRef(getDuration(trainer.role));
   const TEST_DURATION = durationRef.current;
 
-  // Build question sets once
   const [questions] = useState(() =>
     isPractice ? getPracticeQuestions() : getTestQuestions()
   );
 
-  const [section,   setSection]   = useState("coding");
-  const [qIndex,    setQIndex]    = useState(0);
-  const [scores,    setScores]    = useState({});
-  const [mcqAnswer, setMcqAnswer] = useState({});
-  const [timeLeft,  setTimeLeft]  = useState(() => getDuration(trainer.role));
-  const [submitDlg, setSubmitDlg] = useState(false);
-  const [timesUp,   setTimesUp]   = useState(false);   // auto-submit dialog
-  const timerRef = useRef(null);
+  const [section,     setSection]     = useState("coding");
+  const [qIndex,      setQIndex]      = useState(0);
+  const [scores,      setScores]      = useState({});
+  const [mcqAnswer,   setMcqAnswer]   = useState({});
+  const [timeLeft,    setTimeLeft]    = useState(() => getDuration(trainer.role));
+  const [submitDlg,   setSubmitDlg]   = useState(false);
+  const [timesUp,     setTimesUp]     = useState(false);
+  const timerRef      = useRef(null);
 
-  // ── handleFinalSubmit defined with useCallback BEFORE any effect that uses it ──
+  // ── Camera/Mic state ─────────────────────────────────────────────────────────
+  const [camGranted,  setCamGranted]  = useState(isPractice); // skip gate in practice
+  const camStreamRef  = useRef(null);
+
+  // ── Security popup state ─────────────────────────────────────────────────────
+  const [secWarning,  setSecWarning]  = useState(null);
+  const secTimerRef   = useRef(null);
+  const usedWarnings  = useRef(new Set());
+
+  // ── Copy-paste blocking toast ────────────────────────────────────────────────
+  const [showCopyToast, setShowCopyToast] = useState(false);
+  const copyToastTimer  = useRef(null);
+
+  // ── handleFinalSubmit ────────────────────────────────────────────────────────
   const handleFinalSubmit = useCallback(() => {
     clearInterval(timerRef.current);
+    clearInterval(secTimerRef.current);
 
     let codingScore = 0, aptScore = 0, sqlScore = 0;
     questions.coding.forEach(q   => { codingScore += scores[q.id] || 0; });
@@ -51,6 +297,11 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
     const totalCoding = questions.coding.reduce((a, q)   => a + q.marks, 0);
     const totalApt    = questions.aptitude.reduce((a, q) => a + q.marks, 0);
     const totalSql    = questions.sql.reduce((a, q)      => a + q.marks, 0);
+
+    // Stop camera stream
+    if (camStreamRef.current) {
+      camStreamRef.current.getTracks().forEach(t => t.stop());
+    }
 
     submitExam({
       codingScore,
@@ -63,9 +314,90 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
     });
   }, [questions, scores, mcqAnswer, submitExam]);
 
-  // Timer (test mode only)
+  // ── Camera granted callback ──────────────────────────────────────────────────
+  const handleCamGranted = useCallback((stream) => {
+    camStreamRef.current = stream;
+    setCamGranted(true);
+  }, []);
+
+  // ── Copy-paste blocking ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (!camGranted || isPractice) return;
+
+    const showToast = () => {
+      setShowCopyToast(true);
+      clearTimeout(copyToastTimer.current);
+      copyToastTimer.current = setTimeout(() => setShowCopyToast(false), 2500);
+    };
+
+    const blockCopy  = (e) => { e.preventDefault(); showToast(); };
+    const blockPaste = (e) => { e.preventDefault(); showToast(); };
+    const blockCut   = (e) => { e.preventDefault(); showToast(); };
+    const blockCtx   = (e) => { e.preventDefault(); showToast(); };
+
+    const blockKey = (e) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl && ["c", "v", "x", "a"].includes(e.key.toLowerCase())) {
+        // Allow Ctrl+A only in code editor (monaco handles it)
+        // Block copy/paste/cut globally
+        if (["c", "v", "x"].includes(e.key.toLowerCase())) {
+          e.preventDefault();
+          showToast();
+        }
+      }
+    };
+
+    document.addEventListener("copy",        blockCopy,  true);
+    document.addEventListener("paste",       blockPaste, true);
+    document.addEventListener("cut",         blockCut,   true);
+    document.addEventListener("contextmenu", blockCtx,   true);
+    document.addEventListener("keydown",     blockKey,   true);
+
+    return () => {
+      document.removeEventListener("copy",        blockCopy,  true);
+      document.removeEventListener("paste",       blockPaste, true);
+      document.removeEventListener("cut",         blockCut,   true);
+      document.removeEventListener("contextmenu", blockCtx,   true);
+      document.removeEventListener("keydown",     blockKey,   true);
+    };
+  }, [camGranted, isPractice]);
+
+  // ── Random security warning popups (test mode only) ──────────────────────────
+  const scheduleNextWarning = useCallback(() => {
+    clearInterval(secTimerRef.current);
     if (isPractice) return;
+    // Random interval: 3–8 minutes
+    const minMs = 3 * 60 * 1000;
+    const maxMs = 8 * 60 * 1000;
+    const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+
+    secTimerRef.current = setTimeout(() => {
+      // Pick a warning not recently shown
+      const available = SECURITY_WARNINGS.filter((_, i) => !usedWarnings.current.has(i));
+      const pool = available.length > 0 ? available : SECURITY_WARNINGS;
+      const idx  = Math.floor(Math.random() * pool.length);
+      const actualIdx = SECURITY_WARNINGS.indexOf(pool[idx]);
+      usedWarnings.current.add(actualIdx);
+      if (usedWarnings.current.size >= SECURITY_WARNINGS.length) usedWarnings.current.clear();
+      setSecWarning(pool[idx]);
+    }, delay);
+  }, [isPractice]);
+
+  const handleDismissWarning = useCallback(() => {
+    setSecWarning(null);
+    scheduleNextWarning();
+  }, [scheduleNextWarning]);
+
+  // ── Start security warning schedule after cam granted ───────────────────────
+  useEffect(() => {
+    if (!camGranted || isPractice) return;
+    scheduleNextWarning();
+    return () => clearTimeout(secTimerRef.current);
+  }, [camGranted, isPractice, scheduleNextWarning]);
+
+  // ── Timer (test mode only) ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (isPractice || !camGranted) return;
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) { clearInterval(timerRef.current); return 0; }
@@ -73,16 +405,13 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, [isPractice]);
+  }, [isPractice, camGranted]);
 
-  // Auto-submit when timer hits 0 — show dialog for 3s then submit
   useEffect(() => {
     if (timeLeft === 0 && !isPractice) {
       setSubmitDlg(false);
       setTimesUp(true);
-      const t = setTimeout(() => {
-        handleFinalSubmit();
-      }, 3000); // give user 3 seconds to see the message
+      const t = setTimeout(() => handleFinalSubmit(), 3000);
       return () => clearTimeout(t);
     }
   }, [timeLeft, isPractice, handleFinalSubmit]);
@@ -105,10 +434,37 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
 
   const isAnswered = (q) => scores[q.id] !== undefined || mcqAnswer[q.id] !== undefined;
 
+  // ── Camera gate — show before exam ──────────────────────────────────────────
+  if (!camGranted && !isPractice) {
+    return <CameraGate onGranted={handleCamGranted} />;
+  }
+
   if (!currentQ) return null;
 
   return (
     <Box sx={{ display: "flex", height: "100vh", background: "#03070f", overflow: "hidden" }}>
+
+      {/* ── Copy-paste blocked toast ── */}
+      {showCopyToast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)",
+          borderRadius: 8, padding: "8px 20px", fontSize: 12, color: "#f87171",
+          fontFamily: "'DM Mono', monospace", zIndex: 99998, pointerEvents: "none",
+          animation: "fadeIn .2s ease",
+        }}>
+          🚫 Copy / Paste / Right-click is disabled during the exam
+        </div>
+      )}
+
+      {/* ── Security warning popup ── */}
+      {secWarning && (
+        <SecurityPopup
+          warning={secWarning}
+          onDismiss={handleDismissWarning}
+          autoCloseIn={30}
+        />
+      )}
 
       {/* ── Sidebar ── */}
       <Drawer variant="permanent" sx={{
@@ -127,6 +483,17 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
           <Typography sx={{ color: "#64748b", fontSize: 11, mt: 0.5 }}>
             Hi, {trainer.name?.split(" ")[0]} 👋
           </Typography>
+          {/* Camera indicator */}
+          {!isPractice && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+              <Box sx={{
+                width: 6, height: 6, borderRadius: "50%", background: "#22c55e",
+                boxShadow: "0 0 6px #22c55e", animation: "pulse 1.5s infinite",
+                "@keyframes pulse": { "0%,100%": { opacity: 1 }, "50%": { opacity: 0.4 } }
+              }} />
+              <Typography sx={{ fontSize: 10, color: "#22c55e" }}>Camera Active</Typography>
+            </Box>
+          )}
         </Box>
 
         {/* Timer */}
@@ -324,14 +691,11 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
         </DialogActions>
       </Dialog>
 
-      {/* ── Time's Up Dialog (auto-submit) ── */}
+      {/* ── Time's Up Dialog ── */}
       <Dialog open={timesUp} disableEscapeKeyDown
         PaperProps={{ sx: {
-          background: "#0f172a",
-          border: "1px solid rgba(239,68,68,0.4)",
-          borderRadius: 3,
-          textAlign: "center",
-          minWidth: 340,
+          background: "#0f172a", border: "1px solid rgba(239,68,68,0.4)",
+          borderRadius: 3, textAlign: "center", minWidth: 340,
         }}}>
         <DialogContent sx={{ pt: 4, pb: 4, px: 4 }}>
           <Typography sx={{ fontSize: 48, mb: 2 }}>⏰</Typography>
@@ -346,19 +710,11 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
             <br />
             Auto-submitting your answers now...
           </Typography>
-          <Box sx={{
-            mt: 3, height: 4, borderRadius: 2,
-            background: "rgba(239,68,68,0.2)",
-            overflow: "hidden",
-          }}>
+          <Box sx={{ mt: 3, height: 4, borderRadius: 2, background: "rgba(239,68,68,0.2)", overflow: "hidden" }}>
             <Box sx={{
-              height: "100%", borderRadius: 2,
-              background: "#ef4444",
+              height: "100%", borderRadius: 2, background: "#ef4444",
               animation: "timesUpBar 3s linear forwards",
-              "@keyframes timesUpBar": {
-                from: { width: "0%" },
-                to:   { width: "100%" },
-              },
+              "@keyframes timesUpBar": { from: { width: "0%" }, to: { width: "100%" } },
             }} />
           </Box>
         </DialogContent>

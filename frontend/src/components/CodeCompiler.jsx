@@ -294,7 +294,7 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
     setTcResults(question.testCases.map(() => ({ status: "running" })));
     setIoTab("output"); setOutput({ text: "Evaluating all test cases…", type: "idle" });
 
-    const results = []; let passed = 0;
+    const results = []; let passed = 0; let hiddenPassed = 0;
     for (let i = 0; i < question.testCases.length; i++) {
       const tc = question.testCases[i];
       try {
@@ -302,16 +302,22 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
         const got = res.stdout?.trim() ?? "";
         const ok  = got === tc.expected.trim();
         if (ok) passed++;
+        // Only hidden test cases (index >= VISIBLE_TC) contribute to score
+        if (i >= VISIBLE_TC && ok) hiddenPassed++;
         results.push({ status: ok ? "pass" : "fail", got, stderr: res.stderr });
       } catch { results.push({ status: "fail", got: "Error", stderr: "" }); }
       setTcResults([...results, ...Array(question.testCases.length - results.length).fill({ status: "running" })]);
     }
 
     setTcResults(results);
-    const finalScore = Math.round((passed / question.testCases.length) * question.marks);
-    setScore({ score: finalScore, passed, total: question.testCases.length });
+    const hiddenTotal = Math.max(question.testCases.length - VISIBLE_TC, 0);
+    // Score ONLY from hidden test cases; fallback to all if none hidden
+    const finalScore = hiddenTotal > 0
+      ? Math.round((hiddenPassed / hiddenTotal) * question.marks)
+      : Math.round((passed / question.testCases.length) * question.marks);
+    setScore({ score: finalScore, passed, total: question.testCases.length, hiddenPassed, hiddenTotal });
     setSubmitted(true);
-    setOutput({ text: `${passed}/${question.testCases.length} test cases passed.`, type: passed === question.testCases.length ? "ok" : "err" });
+    setOutput({ text: `${passed}/${question.testCases.length} test cases passed. Score from ${hiddenTotal} hidden cases.`, type: passed === question.testCases.length ? "ok" : "err" });
     if (onScoreUpdate) onScoreUpdate(finalScore);
     localStorage.setItem(`code_q_${question.id}`, JSON.stringify({ code, language }));
     setLoading(false);

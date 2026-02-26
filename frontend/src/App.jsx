@@ -32,11 +32,12 @@ function routeByRole(profile) {
 }
 
 export default function App() {
-  const [step,    setStep]    = useState("loading");
-  const [profile, setProfile] = useState(null);
-  const [user,    setUser]    = useState(null);
-  const [mode,    setMode]    = useState(null);
-  const [result,  setResult]  = useState(null);
+  const [step,         setStep]         = useState("loading");
+  const [profile,      setProfile]      = useState(null);
+  const [user,         setUser]         = useState(null);
+  const [mode,         setMode]         = useState(null);
+  const [result,       setResult]       = useState(null);
+  const [attemptBlock, setAttemptBlock] = useState(null); // { nextAvailableAt: Date }
 
   // ── Load profile — STRICT: never fall back to a default role ──────────────
   const loadProfile = async (authUser) => {
@@ -113,7 +114,8 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!initialised) return;
-        if (event === "SIGNED_IN"      && session?.user) await loadProfile(session.user);
+        // SIGNED_IN fires during signUp too — ignore it, Login handles login explicitly
+        // Only handle TOKEN_REFRESHED (page reload with existing session)
         if (event === "TOKEN_REFRESHED" && session?.user) await loadProfile(session.user);
         if (event === "SIGNED_OUT") {
           SS.clear();
@@ -134,8 +136,13 @@ export default function App() {
     setStep("login");
   };
 
-  const handleLoggedIn = async (_prof, authUser) => {
-    await loadProfile(authUser);
+  const handleLoggedIn = async (prof, authUser) => {
+    // Login.jsx already fetched + validated the profile with correct role.
+    // Use it directly — no need to re-fetch and risk a race condition.
+    setUser(authUser);
+    setProfile(prof);
+    SS.save("dashboard", null);
+    setStep("dashboard");
   };
 
   const handleSignOut = async () => {
@@ -143,7 +150,27 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const handleModeSelect = (m) => {
+  const handleModeSelect = async (m) => {
+    // Only enforce 2-attempt-per-24h limit for test mode
+    if (m === "test" && user?.id) {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: recentAttempts } = await supabase
+        .from("results")
+        .select("created_at")
+        .eq("user_id", user.id)
+        .eq("mode", "test")
+        .gte("created_at", twentyFourHoursAgo)
+        .order("created_at", { ascending: false });
+
+      if (recentAttempts && recentAttempts.length >= 2) {
+        // Find when the oldest of the last 2 will expire
+        const oldestOfTwo = new Date(recentAttempts[recentAttempts.length - 1].created_at);
+        const nextAvailableAt = new Date(oldestOfTwo.getTime() + 24 * 60 * 60 * 1000);
+        setAttemptBlock({ nextAvailableAt });
+        return; // Block exam from starting
+      }
+    }
+    setAttemptBlock(null);
     setMode(m);
     SS.save("exam", m);
     setStep("exam");
@@ -160,35 +187,49 @@ export default function App() {
     const { codingScore, mcqScore, codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks } = scores;
     const totalScore = codingScore + mcqScore;
     const percentage = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0;
+
+    // Show result page immediately — don't wait for DB
     setResult({ ...scores, totalScore, percentage, avgScore: totalScore, avgPercentage: percentage });
     SS.save("result", null);
     setStep("result");
 
-    const { data: inserted, error: insertError } = await supabase.from("results").insert([{
-      user_id:       user?.id ?? null,
-      name:          profile?.name ?? null,
-      email:         profile?.email ?? null,
-      phone:         profile?.phone ?? null,
-      stream:        profile?.stream ?? null,
-      mode:          mode ?? null,
-      coding_score:  codingScore,
-      mcq_score:     mcqScore,
-      total_score:   totalScore,
-      percentage,
-      coding_passed: codingPassed ? 1 : 0,
-      mcq_correct:   mcqCorrect,
-    }]).select("id").single();
+    // ── Save result via SECURITY DEFINER RPC (bypasses RLS) ──────────────
+    const { data: newId, error: rpcError } = await supabase.rpc("save_exam_result", {
+      p_user_id:       user?.id ?? null,
+      p_name:          profile?.name ?? null,
+      p_email:         profile?.email ?? null,
+      p_phone:         profile?.phone ?? null,
+      p_stream:        profile?.stream ?? null,
+      p_mode:          mode ?? null,
+      p_coding_score:  codingScore,
+      p_mcq_score:     mcqScore,
+      p_total_score:   totalScore,
+      p_percentage:    percentage,
+      p_coding_passed: codingPassed ? 1 : 0,
+      p_mcq_correct:   mcqCorrect,
+    });
 
-    if (insertError) { console.error("Insert failed:", insertError.message); return; }
+    if (rpcError) {
+      console.error("save_exam_result RPC failed:", rpcError.message);
+      return;
+    }
 
-    const { data: allRows } = await supabase.from("results")
-      .select("total_score, percentage").eq("user_id", user?.id).eq("mode", "test");
+    console.log("Result saved, id:", newId);
 
-    if (allRows?.length) {
-      const avgScore      = Math.round(allRows.reduce((s,r) => s+(r.total_score||0),0)/allRows.length);
-      const avgPercentage = Math.round(allRows.reduce((s,r) => s+(r.percentage||0),0)/allRows.length);
-      await supabase.from("results").update({ total_score: avgScore, percentage: avgPercentage }).eq("id", inserted.id);
-      setResult(prev => ({ ...prev, avgScore, avgPercentage, attemptNumber: allRows.length }));
+    // ── Compute attempt number for this user (test mode only) ────────────
+    if (mode === "test" && user?.id) {
+      const { data: allRows, error: fetchError } = await supabase
+        .from("results")
+        .select("total_score, percentage")
+        .eq("user_id", user.id)
+        .eq("mode", "test");
+
+      if (!fetchError && allRows?.length) {
+        const attemptNumber = allRows.length;
+        const avgScore      = Math.round(allRows.reduce((s, r) => s + (r.total_score || 0), 0) / attemptNumber);
+        const avgPercentage = Math.round(allRows.reduce((s, r) => s + (r.percentage   || 0), 0) / attemptNumber);
+        setResult(prev => ({ ...prev, avgScore, avgPercentage, attemptNumber }));
+      }
     }
   };
 
@@ -219,12 +260,12 @@ export default function App() {
 
       {/* ── TRAINER dashboard — only renders if role is exactly "trainer" ── */}
       {step === "dashboard" && profile && isTrainer && (
-        <TrainerDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} />
+        <TrainerDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} />
       )}
 
       {/* ── STUDENT dashboard — only renders if role is exactly "student" ── */}
       {step === "dashboard" && profile && isStudent && (
-        <StudentDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} />
+        <StudentDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} />
       )}
 
       {/* ── Safety: dashboard step but role is neither trainer nor student ── */}
