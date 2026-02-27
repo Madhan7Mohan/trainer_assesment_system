@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import AttemptBlockModal from "./AttemptBlock";
+import EditProfile from "./EditProfile";
 
 /* ── SQL/Java/Python structured learning content ── */
 const LEARN_CONTENT = {
@@ -514,6 +515,19 @@ export default function StudentDashboard({ profile, onModeSelect, onSignOut, att
     { key:"python", icon:"🐍", color:"#22c55e", border:"rgba(34,197,94,.3)",  bg:"rgba(34,197,94,.05)",  btnColor:"#16a34a",  title:"Python", desc:"Cover data types, functions, OOP, file I/O, NumPy and Pandas basics." },
   ];
 
+  if (view === "edit") {
+    return (
+      <EditProfile
+        profile={profile}
+        onBack={() => setView("home")}
+        onProfileUpdated={(updated) => {
+          if (onProfileUpdated) onProfileUpdated(updated);
+          setView("home");
+        }}
+      />
+    );
+  }
+
   if (view !== "home") {
     return (
       <>
@@ -575,6 +589,12 @@ export default function StudentDashboard({ profile, onModeSelect, onSignOut, att
             <div className="sd-ptags">
               {profile?.stream  && <span className="sd-ptag t-stream">📚 {profile.stream}</span>}
               {profile?.college && <span className="sd-ptag t-college">🏫 {profile.college}</span>}
+              <button
+                onClick={() => setView("edit")}
+                style={{ padding:"4px 14px", background:"transparent", border:"1px solid rgba(0,172,193,.3)", borderRadius:"20px", fontSize:"11px", color:"#00ACC1", cursor:"pointer", fontFamily:"'DM Mono',monospace", transition:"all .2s" }}
+                onMouseEnter={e => e.target.style.background="rgba(0,172,193,.08)"}
+                onMouseLeave={e => e.target.style.background="transparent"}
+              >✏️ Edit Profile</button>
             </div>
           </div>
 

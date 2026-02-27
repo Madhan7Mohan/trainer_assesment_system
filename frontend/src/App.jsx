@@ -182,19 +182,24 @@ export default function App() {
     setStep("dashboard");
   };
 
+  const handleProfileUpdated = (updated) => {
+    setProfile(prev => ({ ...prev, ...updated }));
+  };
+
   // ── Submit exam ────────────────────────────────────────────────────────────
   const submitExam = async (scores) => {
-    const { codingScore, mcqScore, codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks } = scores;
+    const { codingScore, mcqScore, codingPassed, mcqCorrect, totalCoding, totalMCQ, totalMarks, capturedPhoto } = scores;
     const totalScore = codingScore + mcqScore;
     const percentage = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0;
 
     // Show result page immediately — don't wait for DB
-    setResult({ ...scores, totalScore, percentage, avgScore: totalScore, avgPercentage: percentage });
+    setResult({ ...scores, totalScore, percentage, avgScore: totalScore, avgPercentage: percentage, attemptCount: 1 });
     SS.save("result", null);
     setStep("result");
 
-    // ── Save result via SECURITY DEFINER RPC (bypasses RLS) ──────────────
-    const { data: newId, error: rpcError } = await supabase.rpc("save_exam_result", {
+    // ── Upsert result via SECURITY DEFINER RPC ────────────────────────────
+    // RPC now maintains ONE row per user with running avg_score / avg_percentage
+    const { data: resultId, error: rpcError } = await supabase.rpc("save_exam_result", {
       p_user_id:       user?.id ?? null,
       p_name:          profile?.name ?? null,
       p_email:         profile?.email ?? null,
@@ -214,21 +219,31 @@ export default function App() {
       return;
     }
 
-    console.log("Result saved, id:", newId);
+    // ── Save captured photo to exam_photos table ──────────────────────────
+    if (capturedPhoto && user?.id) {
+      const { error: photoError } = await supabase.rpc("save_exam_photo", {
+        p_user_id:   user.id,
+        p_result_id: resultId,
+        p_photo:     capturedPhoto,
+      });
+      if (photoError) console.error("Photo save failed:", photoError.message);
+    }
 
-    // ── Compute attempt number for this user (test mode only) ────────────
+    // ── Fetch updated averages from DB (single row per user now) ─────────
     if (mode === "test" && user?.id) {
-      const { data: allRows, error: fetchError } = await supabase
+      const { data: row, error: fetchError } = await supabase
         .from("results")
-        .select("total_score, percentage")
+        .select("avg_score, avg_percentage, attempt_count")
         .eq("user_id", user.id)
-        .eq("mode", "test");
+        .maybeSingle();
 
-      if (!fetchError && allRows?.length) {
-        const attemptNumber = allRows.length;
-        const avgScore      = Math.round(allRows.reduce((s, r) => s + (r.total_score || 0), 0) / attemptNumber);
-        const avgPercentage = Math.round(allRows.reduce((s, r) => s + (r.percentage   || 0), 0) / attemptNumber);
-        setResult(prev => ({ ...prev, avgScore, avgPercentage, attemptNumber }));
+      if (!fetchError && row) {
+        setResult(prev => ({
+          ...prev,
+          avgScore:     row.avg_score,
+          avgPercentage: row.avg_percentage,
+          attemptCount:  row.attempt_count,
+        }));
       }
     }
   };
@@ -260,12 +275,12 @@ export default function App() {
 
       {/* ── TRAINER dashboard — only renders if role is exactly "trainer" ── */}
       {step === "dashboard" && profile && isTrainer && (
-        <TrainerDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} />
+        <TrainerDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} onProfileUpdated={handleProfileUpdated} />
       )}
 
       {/* ── STUDENT dashboard — only renders if role is exactly "student" ── */}
       {step === "dashboard" && profile && isStudent && (
-        <StudentDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} />
+        <StudentDashboard profile={profile} onModeSelect={handleModeSelect} onSignOut={handleSignOut} attemptBlock={attemptBlock} onProfileUpdated={handleProfileUpdated} />
       )}
 
       {/* ── Safety: dashboard step but role is neither trainer nor student ── */}

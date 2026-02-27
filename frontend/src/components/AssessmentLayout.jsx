@@ -123,6 +123,7 @@ function CameraGate({ onGranted, onBlocked }) {
   const streamRef = useRef(null);
   const [status, setStatus] = useState("idle"); // idle | requesting | granted | denied | error
   const [errMsg, setErrMsg] = useState("");
+  const [photoData, setPhotoData] = useState(null); // base64 capture
 
   const requestPermission = async () => {
     setStatus("requesting");
@@ -135,6 +136,18 @@ function CameraGate({ onGranted, onBlocked }) {
         videoRef.current.play().catch(() => {});
       }
       setStatus("granted");
+      // Capture photo after a short delay so video renders
+      setTimeout(() => {
+        try {
+          const video = videoRef.current;
+          if (!video) return;
+          const canvas = document.createElement("canvas");
+          canvas.width  = video.videoWidth  || 320;
+          canvas.height = video.videoHeight || 240;
+          canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          setPhotoData(canvas.toDataURL("image/jpeg", 0.7));
+        } catch (_) {}
+      }, 1200);
     } catch (err) {
       setStatus("denied");
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
@@ -148,8 +161,8 @@ function CameraGate({ onGranted, onBlocked }) {
   };
 
   const handleStartExam = () => {
-    // Pass the stream so it keeps running during exam
-    onGranted(streamRef.current);
+    // Pass both stream and captured photo
+    onGranted(streamRef.current, photoData);
   };
 
   return (
@@ -311,12 +324,15 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
       totalCoding,
       totalMCQ:     totalApt + totalSql,
       totalMarks:   totalCoding + totalApt + totalSql,
+      capturedPhoto,   // ← photo taken at exam start
     });
   }, [questions, scores, mcqAnswer, submitExam]);
 
   // ── Camera granted callback ──────────────────────────────────────────────────
-  const handleCamGranted = useCallback((stream) => {
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const handleCamGranted = useCallback((stream, photo) => {
     camStreamRef.current = stream;
+    if (photo) setCapturedPhoto(photo);
     setCamGranted(true);
   }, []);
 

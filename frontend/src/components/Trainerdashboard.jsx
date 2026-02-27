@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import AttemptBlockModal from "./AttemptBlock";
+import EditProfile from "./EditProfile";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
@@ -174,6 +175,7 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut, att
 
   const firstName = profile?.name?.split(" ")[0] || "Trainer";
   const greeting  = (() => { const h=new Date().getHours(); return h<12?"Good morning":h<17?"Good afternoon":"Good evening"; })();
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => { if (attemptBlock) setShowBlock(true); }, [attemptBlock]);
 
@@ -218,6 +220,19 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut, att
     return c;
   };
 
+  if (showEdit) {
+    return (
+      <EditProfile
+        profile={profile}
+        onBack={() => setShowEdit(false)}
+        onProfileUpdated={(updated) => {
+          if (onProfileUpdated) onProfileUpdated(updated);
+          setShowEdit(false);
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <style>{css}</style>
@@ -239,6 +254,10 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut, att
           <div className="td-nav-right">
             <LiveTime />
             <span className="td-nav-greeting">{greeting}, <span>{firstName}</span></span>
+            <button
+              onClick={() => setShowEdit(true)}
+              style={{ padding:"6px 14px", background:"transparent", border:"1px solid rgba(0,172,193,.3)", borderRadius:"8px", fontFamily:"'DM Mono',monospace", fontSize:"11px", color:"#00ACC1", cursor:"pointer", transition:"all .2s" }}
+            >✏️ Edit Profile</button>
             <button className="td-logout" onClick={onSignOut}>Sign Out</button>
           </div>
         </nav>

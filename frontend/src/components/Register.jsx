@@ -75,6 +75,12 @@ const css = `
 `;
 
 const STREAMS       = ["Java Full Stack","Python Full Stack","Data Science","DevOps","Testing","Data Analytics","AI/ML"];
+
+// ── Pre-approved trainer employee IDs (case-insensitive) ────────────────────
+const APPROVED_EMPLOYEE_IDS = [
+  "2405K39", "2504P41", "2508J42", "2103J02","2303R35"
+  // Add more IDs here when needed
+];
 const GRAD_DEGREES  = ["B.E / B.Tech","B.Sc","B.Com","BCA","B.A","MBA","MCA","Other"];
 const GRAD_BRANCHES = ["Computer Science","Information Technology","Electronics & Communication","Electrical","Mechanical","Civil","Chemical","Biotechnology","Other"];
 const MASTERS_DEG   = ["M.E / M.Tech","M.Sc","MCA","MBA","M.A","Other"];
@@ -152,6 +158,8 @@ export default function Register({ onRegistered, goToLogin }) {
       if (!form.employeeId.trim()) e.employeeId = "Required";
       else if (!/^[a-zA-Z0-9]+$/.test(form.employeeId.trim()))
                                    e.employeeId = "Alphanumeric only";
+      else if (!APPROVED_EMPLOYEE_IDS.includes(form.employeeId.trim().toUpperCase()))
+                                   e.employeeId = "This Employee ID is not approved for registration";
     }
     return e;
   };
@@ -171,6 +179,18 @@ export default function Register({ onRegistered, goToLogin }) {
       setGlobalErr("⚠ This email is already registered. Please sign in.");
       setLoading(false);
       return;
+    }
+
+    // ── 1b. Trainer: duplicate employee ID check ──────────────────────────────
+    if (role === "trainer") {
+      const empId = form.employeeId.trim().toUpperCase();
+      const { data: existingEmp } = await supabase
+        .from("users").select("id").eq("employee_id", empId).maybeSingle();
+      if (existingEmp) {
+        setGlobalErr("⚠ This Employee ID already has a registered account.");
+        setLoading(false);
+        return;
+      }
     }
 
     // ── 2. Create auth user ──────────────────────────────────────────────────
