@@ -78,7 +78,7 @@ const STREAMS       = ["Java Full Stack","Python Full Stack","Data Science","Dev
 
 // ── Pre-approved trainer employee IDs (case-insensitive) ────────────────────
 const APPROVED_EMPLOYEE_IDS = [
-  "2405K39", "2504P41", "2508J42", "2103J02","2303R35","2310k38","2601k045"
+  "2405K39", "2504P41", "2508J42", "2103J02","2303R35","2310K38","2601K45"
   // Add more IDs here when needed
 ];
 const GRAD_DEGREES  = ["B.E / B.Tech","B.Sc","B.Com","BCA","B.A","MBA","MCA","Other"];
