@@ -2,76 +2,455 @@ import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
 
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&family=DM+Mono:wght@300;400;500&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #03070f; }
-  .rg-root { min-height:100vh; background:#03070f; display:flex; font-family:'DM Mono',monospace; }
-  .rg-left { width:38%; background:linear-gradient(160deg,#071828 0%,#030c18 100%); border-right:1px solid rgba(0,172,193,.1); display:flex; flex-direction:column; justify-content:center; padding:60px 48px; position:relative; overflow:hidden; flex-shrink:0; }
-  @media(max-width:768px){.rg-left{display:none;}}
-  .rg-left-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(0,172,193,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,172,193,.07) 1px,transparent 1px); background-size:32px 32px; }
-  .rg-left-glow { position:absolute; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(0,172,193,.18) 0%,transparent 65%); bottom:-100px; right:-100px; }
-  .rg-logo { position:relative; display:flex; align-items:center; gap:10px; margin-bottom:56px; }
-  .rg-logo-mark { width:36px; height:36px; border:2px solid #00ACC1; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:'Cabinet Grotesk',sans-serif; font-weight:800; font-size:16px; color:#00ACC1; }
-  .rg-logo-text { font-family:'Cabinet Grotesk',sans-serif; font-weight:800; font-size:18px; color:#e2e8f0; }
-  .rg-tagline { position:relative; font-family:'Cabinet Grotesk',sans-serif; font-size:36px; font-weight:800; color:#f1f5f9; line-height:1.15; margin-bottom:20px; }
-  .rg-tagline span { color:#00ACC1; }
-  .rg-desc { position:relative; font-size:13px; color:#64748b; line-height:1.7; margin-bottom:48px; }
-  .rg-steps { position:relative; display:flex; flex-direction:column; gap:16px; }
-  .rg-step { display:flex; align-items:center; gap:14px; font-size:12px; color:#94a3b8; }
-  .rg-step-num { width:26px; height:26px; border-radius:50%; background:rgba(0,172,193,.12); border:1px solid rgba(0,172,193,.3); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#00ACC1; flex-shrink:0; }
-  .rg-right { flex:1; display:flex; align-items:center; justify-content:center; padding:40px 24px; overflow-y:auto; }
-  .rg-card { width:100%; max-width:500px; animation:cardIn .5s cubic-bezier(.16,1,.3,1); padding:8px 0; }
-  @keyframes cardIn { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-  .rg-card-title { font-family:'Cabinet Grotesk',sans-serif; font-size:26px; font-weight:800; color:#f1f5f9; margin-bottom:4px; }
-  .rg-card-sub { font-size:12px; color:#64748b; margin-bottom:22px; line-height:1.6; }
-  .rg-card-sub a { color:#00ACC1; cursor:pointer; text-decoration:none; border-bottom:1px solid rgba(0,172,193,.35); padding-bottom:1px; }
-  .role-toggle { display:flex; background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.12); border-radius:10px; padding:4px; margin-bottom:22px; }
-  .role-btn { flex:1; padding:9px 14px; border:none; border-radius:7px; font-family:'DM Mono',monospace; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; background:transparent; color:#64748b; }
-  .role-btn.active.student { background:rgba(34,197,94,.15); color:#22c55e; box-shadow:0 0 0 1px rgba(34,197,94,.3); }
-  .role-btn.active.trainer { background:rgba(0,172,193,.15); color:#00ACC1; box-shadow:0 0 0 1px rgba(0,172,193,.3); }
-  .role-btn:not(.active):hover { color:#94a3b8; background:rgba(148,163,184,.05); }
-  .mini-toggle { display:flex; background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.1); border-radius:8px; padding:3px; grid-column:1/-1; }
-  .mini-btn { flex:1; padding:8px 10px; border:none; border-radius:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:600; cursor:pointer; transition:all .2s; background:transparent; color:#475569; }
-  .mini-btn.active-inter   { background:rgba(0,172,193,.15);  color:#00ACC1;  box-shadow:0 0 0 1px rgba(0,172,193,.25); }
-  .mini-btn.active-diploma { background:rgba(249,115,22,.15); color:#f97316; box-shadow:0 0 0 1px rgba(249,115,22,.25); }
-  .mini-btn:not([class*="active"]):hover { color:#94a3b8; }
-  .masters-row { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; padding:13px 16px; background:rgba(167,139,250,.04); border:1px solid rgba(167,139,250,.15); border-radius:10px; cursor:pointer; transition:all .2s; user-select:none; }
-  .masters-row:hover { border-color:rgba(167,139,250,.35); background:rgba(167,139,250,.08); }
-  .masters-row-label { font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:8px; }
-  .masters-row-label strong { color:#a78bfa; }
-  .masters-pill { padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'DM Mono',monospace; transition:all .2s; }
-  .masters-pill.off { background:rgba(148,163,184,.1); color:#475569; }
-  .masters-pill.on  { background:rgba(167,139,250,.2); color:#a78bfa; border:1px solid rgba(167,139,250,.3); }
-  .rg-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .rg-full { grid-column:1/-1; }
-  .rg-field { display:flex; flex-direction:column; }
-  .rg-label { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:#94a3b8; margin-bottom:6px; }
-  .rg-input { background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.12); border-radius:9px; padding:11px 13px; font-family:'DM Mono',monospace; font-size:13px; color:#e2e8f0; outline:none; transition:border-color .2s,box-shadow .2s; width:100%; appearance:none; }
-  .rg-input:focus { border-color:rgba(0,172,193,.5); box-shadow:0 0 0 3px rgba(0,172,193,.07); }
-  .rg-input::placeholder { color:#334155; }
-  .rg-input option { background:#0f172a; color:#e2e8f0; }
-  .rg-input.err { border-color:rgba(239,68,68,.4); }
-  .rg-err  { font-size:10px; color:#f87171; margin-top:4px; }
-  .rg-hint { font-size:10px; color:#475569; margin-top:5px; font-style:italic; }
-  .rg-divider { height:1px; background:rgba(148,163,184,.08); margin:4px 0; grid-column:1/-1; }
-  .rg-section-label { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:#475569; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
-  .rg-section-label::after { content:''; flex:1; height:1px; background:rgba(148,163,184,.08); }
-  .edu-head { grid-column:1/-1; display:flex; align-items:center; gap:10px; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:10px 14px; border-radius:8px; margin-top:4px; }
-  .edu-head::after { content:''; flex:1; height:1px; }
-  .edu-head.degree  { color:#22c55e; background:rgba(34,197,94,.05);   border-left:3px solid #22c55e; }
-  .edu-head.degree::after  { background:rgba(34,197,94,.1); }
-  .edu-head.masters { color:#a78bfa; background:rgba(167,139,250,.05); border-left:3px solid #a78bfa; }
-  .edu-head.masters::after { background:rgba(167,139,250,.1); }
-  .edu-head.inter   { color:#00ACC1; background:rgba(0,172,193,.05);   border-left:3px solid #00ACC1; }
-  .edu-head.inter::after   { background:rgba(0,172,193,.1); }
-  .edu-head.school  { color:#f97316; background:rgba(249,115,22,.05);  border-left:3px solid #f97316; }
-  .edu-head.school::after  { background:rgba(249,115,22,.1); }
-  .rg-submit { width:100%; padding:13px; border:none; border-radius:10px; font-family:'Cabinet Grotesk',sans-serif; font-size:15px; font-weight:700; color:#fff; cursor:pointer; transition:all .2s; margin-top:20px; }
-  .rg-submit.student-btn { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 4px 20px rgba(34,197,94,.25); }
-  .rg-submit.trainer-btn { background:linear-gradient(135deg,#00ACC1,#0891b2); box-shadow:0 4px 20px rgba(0,172,193,.25); }
-  .rg-submit:hover:not(:disabled) { transform:translateY(-1px); filter:brightness(1.1); }
-  .rg-submit:disabled { opacity:.5; cursor:not-allowed; }
-  .rg-global-err { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:8px; padding:10px 14px; font-size:12px; color:#f87171; margin-top:14px; line-height:1.5; }
+@import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 🔥 BACKGROUND UPGRADE */
+body {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+/* ROOT */
+.rg-root {
+  min-height:100vh;
+  display:flex;
+  font-family:'DM Mono',monospace;
+}
+
+/* LEFT PANEL */
+.rg-left {
+  width:38%;
+  background:#2563eb;
+  border-right:1px solid #e2e8f0;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  padding:60px 48px;
+  position:relative;
+}
+
+@media(max-width:768px){.rg-left{display:none;}}
+
+.rg-left-grid {
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.1) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.1) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+
+/* LOGO */
+.rg-logo { display:flex; align-items:center; gap:10px; margin-bottom:56px; }
+
+.rg-logo-mark {
+  width:36px; height:36px;
+  border:2px solid #ffffff;
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800;
+  color:#ffffff;
+}
+
+.rg-logo-text {
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-weight:800;
+  font-size:18px;
+  color:#ffffff;
+}
+
+/* LEFT TEXT */
+.rg-tagline {
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:36px;
+  font-weight:800;
+  color:#ffffff;
+  margin-bottom:20px;
+  line-height:1.2;
+}
+
+.rg-tagline span { color:#dbeafe; }
+
+.rg-desc {
+  font-size:13px;
+  color:#dbeafe;
+  margin-bottom:48px;
+}
+
+/* STEPS */
+.rg-step {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  font-size:12px;
+  color:#dbeafe;
+}
+
+.rg-step-num {
+  width:26px; height:26px;
+  border-radius:50%;
+  background:#ffffff;
+  color:#2563eb;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+}
+
+/* RIGHT */
+.rg-right {
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 24px;
+}
+
+/* 💎 CARD PREMIUM */
+.rg-card {
+  width:100%;
+  max-width:500px;
+  background:#ffffff;
+  border-radius:16px;
+  box-shadow:0 20px 50px rgba(37,99,235,0.15);
+  padding:24px;
+}
+
+/* TEXT */
+.rg-card-title {
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:28px;
+  font-weight:800;
+  color:#2563eb;
+  letter-spacing:0.5px;
+}
+
+.rg-card-sub {
+  font-size:12px;
+  color:#64748b;
+  margin-bottom:22px;
+}
+
+.rg-card-sub a {
+  color:#2563eb;
+  text-decoration:none;
+}
+
+/* FIELD SPACING */
+.rg-field {
+  margin-bottom:14px;
+}
+
+/* LABEL */
+.rg-label {
+  font-size:11px;
+  color:#2563eb;
+  margin-bottom:4px;
+  font-weight:700;
+}
+
+/* INPUT */
+.rg-input {
+  width:100%;
+  background:#ffffff;
+  border:1px solid #cbd5e1;
+  border-radius:4px;
+  padding:8px 10px;
+  font-size:14px;
+  color:#0f172a;
+  outline:none;
+  transition:0.2s;
+}
+
+.rg-input::placeholder {
+  font-size:12px;
+  color:#9ca3af;
+}
+
+/* ✨ FOCUS EFFECT */
+.rg-input:focus {
+  border-color:#2563eb;
+  transform:scale(1.01);
+}
+
+/* ROLE BUTTON */
+.role-toggle {
+  display:flex;
+  background:#eff6ff;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:4px;
+  margin-bottom:22px;
+}
+
+.role-btn {
+  flex:1;
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  background:transparent;
+  color:#64748b;
+  cursor:pointer;
+}
+
+.role-btn.active.student {
+  background: #2563eb;   /* main blue */
+  color: #ffffff;        /* white text */
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+
+}
+
+/* TOGGLE */
+.mini-toggle {
+  display:flex;
+  gap:8px;
+  background:#eff6ff;
+  border:1px solid #e2e8f0;
+  border-radius:6px;
+  padding:4px;
+  margin-top:8px;
+}
+
+.mini-btn {
+  flex:1;
+  padding:8px 12px;
+  border:none;
+  border-radius:4px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  background:#ffffff;
+  color:#2563eb;
+  transition:0.2s;
+}
+
+.mini-btn.active-inter,
+.mini-btn.active-diploma {
+  background:#2563eb;
+  color:#ffffff;
+}
+
+.mini-btn:hover {
+  background:#dbeafe;
+}
+
+/* SECTION HEAD */
+.rg-section-label,
+.edu-head {
+  color:#2563eb;
+  background:linear-gradient(90deg,#eff6ff,#dbeafe);
+  border-left:4px solid #2563eb;
+  padding:8px 12px;
+  border-radius:6px;
+  margin-top:12px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.edu-head::after,
+.rg-section-label::after {
+  content:'';
+  flex:1;
+  height:1px;
+  background:rgba(37,99,235,.2);
+}
+
+/* ERROR */
+.rg-error {
+  font-size:11px;
+  color:#ef4444;
+  margin-top:4px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+  .rg-hint {
+  font-size: 10px;
+  color: #94a3b8;   /* lighter color */
+  margin-top: 2px;
+}
+
+.rg-error svg {
+  width:12px;
+  height:12px;
+}
+  .rg-field {
+  position: relative;
+}
+
+.rg-field {
+  position: relative;
+  margin-top: 18px;   /* 🔥 ADD THIS */
+  margin-bottom: 16px;
+}
+  .rg-section-label {
+  margin-bottom: 12px;   /* 🔥 important */
+}
+  .masters-row-label {
+  font-size: 11px;        /* 🔽 reduce size */
+  color: #64748b;         /* softer gray */
+  font-weight: 500;       /* not too bold */
+}
+
+.rg-floating-label {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: #9ca3af;
+  background: #fff;
+  padding: 0 4px;
+  transition: 0.2s;
+  pointer-events: none;
+}
+.rg-input.has-value + .rg-floating-label {
+  top: -7px;
+  font-size: 11px;
+  color: #2563eb;
+}
+.rg-input:focus + .rg-floating-label,
+.rg-input:not(:placeholder-shown) + .rg-floating-label,
+select:focus + .rg-floating-label,
+select:not([value=""]) + .rg-floating-label {
+  top: -7px;
+  font-size: 11px;
+  color: #2563eb;
+}
+  
+
+.rg-input:focus + .rg-floating-label,
+.rg-input:not(:placeholder-shown) + .rg-floating-label {
+  top: -7px;
+  font-size: 11px;
+  color: #2563eb;
+}
+/* layout */
+.masters-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* label */
+.masters-label {
+  font-size: 12px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* switch container */
+.switch {
+  position: relative;
+  width: 40px;
+  height: 20px;
+}
+
+/* hide checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* slider background */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #cbd5e1;
+  border-radius: 20px;
+  transition: 0.3s;
+}
+
+/* circle */
+.slider::before {
+  content: "";
+  position: absolute;
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+/* active state */
+.switch input:checked + .slider {
+  background-color: #2563eb;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+/* yes/no text */
+.toggle-text {
+  font-size: 11px;
+  color: #64748b;
+}
+  .custom-file input {
+  display: none;
+}
+
+.custom-file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+/* 🔵 Button */
+.file-btn {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.25s;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.3);
+}
+
+/* Hover effect */
+.file-btn:hover {
+  transform: translateY(-2px);
+  
+}
+
+/* 📄 File name */
+.file-name {
+  font-size: 13px;
+  color: #059669;   /* green success */
+  font-weight: 600;
+  background: #ecfdf5;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+/* 💎 BUTTON PREMIUM */
+.rg-submit.student-btn {
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  color:#fff;
+  background:linear-gradient(135deg,#2563eb,#3b82f6);
+  margin-top:20px;
+  cursor:pointer;
+  font-size:15px;
+  letter-spacing:0.5px;
+  box-shadow:0 8px 20px rgba(37,99,235,0.3);
+  transition:0.2s;
+}
+
+.rg-submit:hover {
+  transform:translateY(-2px);
+}
 `;
 
 const STREAMS       = ["Java Full Stack","Python Full Stack","Data Science","DevOps","Testing","Data Analytics","AI/ML"];
@@ -100,7 +479,7 @@ export default function Register({ onRegistered, goToLogin }) {
     interCollege:"", interPercentage:"", interPassoutYear:"",
     diplomaCollege:"", diplomaPercentage:"", diplomaPassoutYear:"",
     schoolName:"", schoolPercentage:"", schoolPassoutYear:"",
-    department:"", employeeId:"",
+    department:"", employeeId:"",resume:null,
   });
 
   const [errors,    setErrors]    = useState({});
@@ -152,6 +531,20 @@ export default function Register({ onRegistered, goToLogin }) {
       if (!form.schoolName.trim())  e.schoolName       = "Required";
       if (!form.schoolPercentage)   e.schoolPercentage = "Required";
       if (!form.schoolPassoutYear)  e.schoolPassoutYear= "Required";
+    
+       // ✅ Resume validation
+if (!form.resume) {
+  e.resume = "Resume required";
+} else if (form.resume.size > 2 * 1024 * 1024) {
+  e.resume = "Max 2MB allowed";
+} else if (
+  !["application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ].includes(form.resume.type)
+) {
+  e.resume = "Only PDF/DOC allowed";
+}
     }
     if (role === "trainer") {
       if (!form.department)        e.department = "Required";
@@ -359,33 +752,34 @@ export default function Register({ onRegistered, goToLogin }) {
                 onClick={() => { setRole("student"); setErrors({}); setGlobalErr(""); }}>
                 🎓 Student
               </button>
-              <button className={`role-btn${role==="trainer" ? " active trainer" : ""}`}
-                onClick={() => { setRole("trainer"); setErrors({}); setGlobalErr(""); }}>
-                👨‍🏫 Trainer
-              </button>
+              
             </div>
 
             <div className="rg-grid2">
 
               {/* Common */}
               <div className="rg-field rg-full">
-                <label className="rg-label">Full Name</label>
-                <input className={cls("name")} placeholder="e.g. Ravi Kumar" value={form.name} onChange={set("name")} />
+                
+                <input className={cls("name")} placeholder="eg:ravi kumar" value={form.name} onChange={set("name")} />
+                <label className="rg-floating-label">Full Name</label>
                 {errors.name && <span className="rg-err">⚠ {errors.name}</span>}
               </div>
               <div className="rg-field rg-full">
-                <label className="rg-label">Email Address</label>
-                <input className={cls("email")} type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
+                
+                <input className={cls("email")} type="email" placeholder="example@gmail.com" value={form.email} onChange={set("email")} />
+                <label className="rg-floating-label">Email Address</label>
                 {errors.email && <span className="rg-err">⚠ {errors.email}</span>}
               </div>
               <div className="rg-field">
-                <label className="rg-label">Password</label>
+                
                 <input className={cls("password")} type="password" placeholder="Min 6 chars" value={form.password} onChange={set("password")} />
+                <label className="rg-floating-label">Password</label>
                 {errors.password && <span className="rg-err">⚠ {errors.password}</span>}
               </div>
               <div className="rg-field">
-                <label className="rg-label">Confirm Password</label>
+                
                 <input className={cls("confirmPassword")} type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={set("confirmPassword")} />
+                <label className="rg-floating-label">Confirm Password</label>
                 {errors.confirmPassword && <span className="rg-err">⚠ {errors.confirmPassword}</span>}
               </div>
 
@@ -393,15 +787,20 @@ export default function Register({ onRegistered, goToLogin }) {
               <div className="rg-full"><div className="rg-section-label">Personal Info</div></div>
 
               <div className="rg-field">
-                <label className="rg-label">Mobile Number</label>
+                
                 <input className={cls("phone")} type="tel" placeholder="10-digit" value={form.phone} onChange={set("phone")} />
+                <label className="rg-floating-label">Mobile Number</label>
                 {errors.phone && <span className="rg-err">⚠ {errors.phone}</span>}
               </div>
               <div className="rg-field">
-                <label className="rg-label">Date of Birth</label>
-                <input className={cls("dob")} type="date" value={form.dob} onChange={set("dob")} />
-                {errors.dob && <span className="rg-err">⚠ {errors.dob}</span>}
-              </div>
+  <label className="rg-label">Date of Birth</label>
+  <input 
+    className={cls("dob")} 
+    type="date" 
+    value={form.dob} 
+    onChange={set("dob")} 
+  />
+</div>
 
               {/* ══ STUDENT ══ */}
               {role === "student" && (<>
@@ -424,17 +823,44 @@ export default function Register({ onRegistered, goToLogin }) {
                     ? <span className="rg-err">⚠ {errors.studentCardId}</span>
                     : <span className="rg-hint">Check your ID card</span>}
                 </div>
+               <div className="rg-field rg-full">
+  <label className="rg-label">Upload Resume</label>
 
+  <label className="custom-file">
+    <input 
+      type="file"
+      accept=".pdf,.doc,.docx"
+      onChange={(e) => {
+        const file = e.target.files[0];
+        setForm(p => ({ ...p, resume: file }));
+      }}
+    />
+
+    <span className="file-btn">📄 Upload Resume</span>
+
+    {form.resume && (
+      <span className="file-name">
+        ✅ {form.resume.name}
+      </span>
+    )}
+  </label>
+
+  <span className="rg-hint">PDF/DOC (Max 2MB)</span>
+
+  {errors.resume && <span className="rg-error">⚠ {errors.resume}</span>}
+</div>
                 {/* Degree */}
                 <div className="edu-head degree">🎓 Degree / UG</div>
                 <div className="rg-field rg-full">
-                  <label className="rg-label">College / University Name</label>
+                  
                   <input className={cls("college")} placeholder="e.g. SVR Engineering College" value={form.college} onChange={set("college")} />
+                  <label className="rg-floating-label">College / University Name</label>
                   {errors.college && <span className="rg-err">⚠ {errors.college}</span>}
                 </div>
                 <div className="rg-field rg-full">
-                  <label className="rg-label">College State</label>
+                  
                   <input className={cls("collegeState")} placeholder="e.g. Andhra Pradesh" value={form.collegeState} onChange={set("collegeState")} />
+                  <label className="rg-floating-label">College State</label>
                   {errors.collegeState && <span className="rg-err">⚠ {errors.collegeState}</span>}
                 </div>
                 <div className="rg-field">
@@ -475,10 +901,34 @@ export default function Register({ onRegistered, goToLogin }) {
                 </div>
 
                 {/* Masters */}
-                <div className="masters-row" onClick={() => setHasMasters(h => !h)}>
-                  <span className="masters-row-label">🏛️ <strong>Masters / PG</strong> — did you pursue a masters degree?</span>
-                  <span className={`masters-pill ${hasMasters ? "on" : "off"}`}>{hasMasters ? "YES — fill below ↓" : "NO"}</span>
-                </div>
+                <div className="masters-row">
+  <span className="masters-label">Masters / PG</span>
+
+  <label className="switch">
+    <input 
+      type="checkbox" 
+      checked={hasMasters}
+      onChange={() => {
+        setHasMasters(!hasMasters);
+
+        if (hasMasters) {
+          setForm(p => ({
+            ...p,
+            mastersCollege: "",
+            mastersDegree: "",
+            mastersPercentage: "",
+            mastersPassoutYear: ""
+          }));
+        }
+      }}
+    />
+    <span className="slider"></span>
+  </label>
+
+  <span className="toggle-text">
+    {hasMasters ? "Yes" : "No"}
+  </span>
+</div>
                 {hasMasters && (<>
                   <div className="edu-head masters">🏛️ Masters / PG</div>
                   <div className="rg-field rg-full">
@@ -569,8 +1019,10 @@ export default function Register({ onRegistered, goToLogin }) {
                 {/* School */}
                 <div className="edu-head school">🏫 School / 10th</div>
                 <div className="rg-field rg-full">
-                  <label className="rg-label">School Name</label>
-                  <input className={cls("schoolName")} placeholder="e.g. DAV Public School" value={form.schoolName} onChange={set("schoolName")} />
+                  
+                  
+                <input className={cls("schoolName")} placeholder="e.g. DAV  School" value={form.schoolName} onChange={set("schoolName")} />
+                <label className="rg-floating-label">School Name</label>
                   {errors.schoolName && <span className="rg-err">⚠ {errors.schoolName}</span>}
                 </div>
                 <div className="rg-field">
@@ -610,10 +1062,13 @@ export default function Register({ onRegistered, goToLogin }) {
 
             </div>
 
-            <button className={`rg-submit ${role==="student" ? "student-btn" : "trainer-btn"}`}
-              onClick={handleSubmit} disabled={loading}>
-              {loading ? "Creating Account..." : `Create ${role==="trainer" ? "Trainer" : "Student"} Account →`}
-            </button>
+            <button
+      className="rg-submit student-btn"
+  onClick={handleSubmit}
+  disabled={loading}
+>
+  {loading ? "Creating Account..." : "Create Account →"}
+</button>
             {globalErr && <div className="rg-global-err">{globalErr}</div>}
           </div>
         </div>

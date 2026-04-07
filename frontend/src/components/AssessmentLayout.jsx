@@ -268,12 +268,32 @@ function SecurityPopup({ warning, onDismiss, autoCloseIn }) {
 // ── Main AssessmentLayout ─────────────────────────────────────────────────────
 export default function AssessmentLayout({ trainer, submitExam, onExitPractice }) {
   const isPractice  = trainer.mode === "practice";
+  const [difficulty, setDifficulty] = useState("easy");
   const durationRef = useRef(getDuration(trainer.role));
   const TEST_DURATION = durationRef.current;
 
-  const [questions] = useState(() =>
-    isPractice ? getPracticeQuestions() : getTestQuestions()
-  );
+  const allQuestions = isPractice
+  ? getPracticeQuestions()
+  : getTestQuestions();
+
+const questions = {
+  coding: allQuestions.coding.filter(q =>
+    isPractice
+      ? (q.difficulty || "").toLowerCase() === difficulty.toLowerCase()
+      : true
+  ),
+  aptitude: allQuestions.aptitude.filter(q =>
+    isPractice
+      ? (q.difficulty || "").toLowerCase() === difficulty.toLowerCase()
+      : true
+  ),
+  sql: allQuestions.sql.filter(q =>
+    isPractice
+      ? (q.difficulty || "").toLowerCase() === difficulty.toLowerCase()
+      : true
+  ),
+};
+
 
   const [section,     setSection]     = useState("coding");
   const [qIndex,      setQIndex]      = useState(0);
@@ -283,6 +303,33 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
   const [submitDlg,   setSubmitDlg]   = useState(false);
   const [timesUp,     setTimesUp]     = useState(false);
   const timerRef      = useRef(null);
+  const [showQuestion, setShowQuestion] = useState(false);
+  const getAnsweredCount = (qs) =>
+  qs.filter(q => scores[q.id] !== undefined || mcqAnswer[q.id] !== undefined).length;
+
+const easyQs = [
+  ...allQuestions.coding.filter(q => q.difficulty?.toLowerCase() === "easy"),
+  ...allQuestions.aptitude.filter(q => q.difficulty?.toLowerCase() === "easy"),
+  ...allQuestions.sql.filter(q => q.difficulty?.toLowerCase() === "easy"),
+];
+
+const mediumQs = [
+  ...allQuestions.coding.filter(q => q.difficulty?.toLowerCase() === "medium"),
+  ...allQuestions.aptitude.filter(q => q.difficulty?.toLowerCase() === "medium"),
+  ...allQuestions.sql.filter(q => q.difficulty?.toLowerCase() === "medium"),
+];
+
+const easyDone = getAnsweredCount(easyQs) === easyQs.length;
+const mediumDone = getAnsweredCount(mediumQs) === mediumQs.length;
+
+const isEasyLocked = easyDone;
+const isMediumLocked = !easyDone || mediumDone;
+const isHardLocked = !mediumDone;
+
+  useEffect(() => {
+  setQIndex(0);
+}, [difficulty, section]);
+
 
   // ── Camera/Mic state ─────────────────────────────────────────────────────────
   const [camGranted,  setCamGranted]  = useState(isPractice); // skip gate in practice
@@ -435,8 +482,15 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
   const fmtTime = s =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  const currentQ  = questions[section]?.[qIndex];
-  const sectionQs = questions[section] || [];
+ const sectionQs = questions[section] || [];
+
+// ✅ safe index fix
+const safeIndex =
+  qIndex < sectionQs.length ? qIndex : 0;
+
+const currentQ =
+  sectionQs.length > 0 ? sectionQs[safeIndex] : null;
+
 
   const handleScoreUpdate = (id, score) => setScores(p => ({ ...p, [id]: score }));
 
@@ -455,10 +509,18 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
     return <CameraGate onGranted={handleCamGranted} />;
   }
 
-  if (!currentQ) return null;
+  if (!currentQ) {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography sx={{ color: "#fff" }}>
+        No questions available for this difficulty
+      </Typography>
+    </Box>
+  );
+}
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", background: "#03070f", overflow: "hidden" }}>
+    <Box sx={{ display: "flex", height: "100vh", background: "#f8fbff", overflow: "hidden" }}>
 
       {/* ── Copy-paste blocked toast ── */}
       {showCopyToast && (
@@ -486,32 +548,92 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
       <Drawer variant="permanent" sx={{
         width: DRAWER_WIDTH, flexShrink: 0,
         "& .MuiDrawer-paper": {
-          width: DRAWER_WIDTH, background: "#071020",
-          borderRight: "1px solid rgba(0,172,193,0.15)",
+          width: DRAWER_WIDTH,
+background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+borderRight: "none",
+color: "#ffffff",
           overflow: "hidden", display: "flex", flexDirection: "column"
         }
       }}>
         {/* Logo */}
-        <Box sx={{ p: 2, borderBottom: "1px solid rgba(0,172,193,0.15)" }}>
-          <Typography sx={{ color: "#00ACC1", fontWeight: 800, fontFamily: "'Syne', sans-serif", fontSize: 16 }}>
-            ThopsTech {isPractice ? "Practice" : "Assessment"}
-          </Typography>
-          <Typography sx={{ color: "#64748b", fontSize: 11, mt: 0.5 }}>
-            Hi, {trainer.name?.split(" ")[0]} 👋
-          </Typography>
-          {/* Camera indicator */}
-          {!isPractice && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
-              <Box sx={{
-                width: 6, height: 6, borderRadius: "50%", background: "#22c55e",
-                boxShadow: "0 0 6px #22c55e", animation: "pulse 1.5s infinite",
-                "@keyframes pulse": { "0%,100%": { opacity: 1 }, "50%": { opacity: 0.4 } }
-              }} />
-              <Typography sx={{ fontSize: 10, color: "#22c55e" }}>Camera Active</Typography>
-            </Box>
-          )}
-        </Box>
+        {/* Logo */}
+<Box sx={{ p: 2, borderBottom: "1px solid rgba(0,172,193,0.15)" }}>
+  <Typography sx={{ color: "#ffffff",
+    fontWeight: 800,       // bold
+    fontSize: 18,textShadow: "0 0 8px rgba(255,255,255,0.3)",
+    letterSpacing: 0.5}}>
+    ThopsTech {isPractice ? "Practice" : "Assessment"}
+  </Typography>
+  <Typography sx={{ color: "#ffffff", fontWeight: 700, fontSize: 11, mt: 0.5 }}>
+    Hi, {trainer.name?.split(" ")[0]} 👋
+  </Typography>
 
+  {!isPractice && (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+      <Box sx={{
+        width: 6, height: 6, borderRadius: "50%", background: "#22c55e",
+        boxShadow: "0 0 6px #22c55e", animation: "pulse 1.5s infinite",
+      }} />
+      <Typography sx={{ fontSize: 10, color: "#22c55e" }}>Camera Active</Typography>
+    </Box>
+  )}
+</Box>
+
+{/* ✅ ADD HERE */}
+
+{isPractice && (
+  <Box sx={{ p: 2 }}>
+    <Typography sx={{ color: "#ffffff",      // white text
+    fontSize: 12,
+    mb: 1,
+    fontWeight: 600  }}>
+      Select Difficulty
+    </Typography>
+
+    <Box sx={{ display: "flex", gap: 1 }}>
+      {["easy", "medium", "hard"].map((level) => {
+        let isLocked = false;
+
+        if (level === "easy") isLocked = isEasyLocked;
+        if (level === "medium") isLocked = isMediumLocked;
+        if (level === "hard") isLocked = isHardLocked;
+
+        return (
+          <Button
+            key={level}
+            disabled={isLocked}
+            onClick={() => {
+              setDifficulty(level);
+              setQIndex(0);
+            }}
+            sx={{
+  flex: 1,
+  fontSize: 10,
+  py: 0.5,
+
+  background: "#ffffff",   // always white
+  color: "#000000",        // always black
+
+  border: difficulty === level
+    ? "2px solid #2563eb"  // selected → blue border
+    : "1px solid #e2e8f0",
+
+  fontWeight: difficulty === level ? "700" : "500",
+
+  opacity: isLocked ? 0.5 : 1,
+
+  "&:hover": {
+    background: "#f8fafc"
+  }
+}}
+          >
+            {level.toUpperCase()} {isLocked && "🔒"}
+          </Button>
+        );
+      })}
+    </Box>
+  </Box>
+)}
         {/* Timer */}
         {!isPractice && (
           <Box sx={{
@@ -530,7 +652,7 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
             <LinearProgress variant="determinate" value={(timeLeft / TEST_DURATION) * 100}
               sx={{ mt: 1, height: 4, borderRadius: 2,
                 "& .MuiLinearProgress-bar": { background: timeLeft < 300 ? "#ef4444" : "#f97316" },
-                background: "#1e293b" }} />
+                background: "#ffffff" }} />
           </Box>
         )}
 
@@ -604,7 +726,18 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
               "& .MuiLinearProgress-bar": { background: "#00ACC1" } }} />
           {isPractice ? (
             <Button fullWidth variant="outlined" onClick={onExitPractice}
-              sx={{ color: "#94a3b8", borderColor: "#334155", fontSize: 12 }}>
+              sx={{
+    background: "#ffffff",      // white background
+    color: "#000000",           // black text
+    border: "1px solid #e2e8f0",
+    fontSize: 12,
+    fontWeight: 600,
+
+    "&:hover": {
+      background: "#f8fafc"
+    }
+  }}
+>
               ← Back to Dashboard
             </Button>
           ) : (
@@ -618,26 +751,59 @@ export default function AssessmentLayout({ trainer, submitExam, onExitPractice }
 
       {/* ── Main Content ── */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <Box sx={{ position: "absolute", top: 10, left: 280, zIndex: 10 }}>
+  <Button
+    variant="contained"
+    size="small"
+    onClick={() => setShowQuestion(prev => !prev)}
+  >
+    {showQuestion ? "Hide Question" : "Show Question"}
+  </Button>
+</Box>
 
         {section === "coding" && (
           <>
-            <Box sx={{ width: "42%", overflowY: "auto", borderRight: "1px solid rgba(0,172,193,0.1)",
-              "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { background: "#1e3a4a" } }}>
-              <QuestionCard
-                question={currentQ}
-                currentIndex={qIndex}
-                setCurrentIndex={setQIndex}
-                total={sectionQs.length}
-                isLast={qIndex === sectionQs.length - 1}
-                onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
-              />
-            </Box>
-            <Box sx={{ flex: 1, overflowY: "auto" }}>
-              <CodeCompiler
-                question={currentQ}
-                onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
-              />
-            </Box>
+            <Box
+  sx={{
+    width: showQuestion ? "42%" : "0%",
+    overflow: "hidden",
+    transition: "all 0.4s ease",
+    borderRight: showQuestion ? "1px solid rgba(0,172,193,0.1)" : "none"
+  }}
+>
+  <Box
+    sx={{
+      opacity: showQuestion ? 1 : 0,
+      transform: showQuestion ? "translateX(0)" : "translateX(-40px)",
+      transition: "all 0.3s ease",
+      height: "100%"
+    }}
+  >
+    {showQuestion && (
+      <QuestionCard
+        question={currentQ}
+        currentIndex={qIndex}
+        setCurrentIndex={setQIndex}
+        total={sectionQs.length}
+        isLast={qIndex === sectionQs.length - 1}
+        onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
+      />
+    )}
+  </Box>
+</Box>
+           <Box
+  sx={{
+    flex: 1,
+    width: showQuestion ? "58%" : "100%",
+    transition: "all 0.4s ease",
+    overflowY: "auto"
+  }}
+>
+  <CodeCompiler
+    question={currentQ}
+    onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
+  />
+</Box>
           </>
         )}
 

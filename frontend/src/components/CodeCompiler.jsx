@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { executeCode } from "../utils/judge0";
+//import { executeCode } from "../utils/judge0";
 
 // ── Language meta ─────────────────────────────────────────────────────────────
 const LANG_META = {
@@ -60,189 +60,493 @@ function useDragDivider(initial, min, max, invert = false) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;600;700;800&display=swap');
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ROOT */
 .cc-root {
-  display: flex; flex-direction: column; height: 100vh;
-  background: #080d16; color: #e2e8f0;
-  font-family: 'Outfit', sans-serif; overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8fbff;
+  color: #1e293b;
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
 }
 
-/* Topbar */
+/* TOPBAR */
 .cc-topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 18px; height: 50px; flex-shrink: 0;
-  background: #0c1525; border-bottom: 1px solid rgba(99,179,237,.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  height: 50px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
 }
-.cc-topbar-l { display: flex; align-items: center; gap: 10px; }
-.cc-topbar-r { display: flex; align-items: center; gap: 8px; }
-.cc-title { font-weight: 800; font-size: 14px; color: #e2e8f0; }
-.cc-chip { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.cc-chip-easy   { background:rgba(34,197,94,.15);  color:#22c55e; border:1px solid rgba(34,197,94,.3); }
-.cc-chip-medium { background:rgba(250,204,21,.15); color:#facc15; border:1px solid rgba(250,204,21,.3); }
-.cc-chip-hard   { background:rgba(239,68,68,.15);  color:#ef4444; border:1px solid rgba(239,68,68,.3); }
-.cc-chip-marks  { background:rgba(56,189,248,.1);  color:#38bdf8; border:1px solid rgba(56,189,248,.2); }
 
-.cc-langs { display:flex; background:#111c30; border:1px solid rgba(99,179,237,.12); border-radius:8px; overflow:hidden; }
+.cc-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+/* CHIPS */
+.cc-chip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cc-chip-easy {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.cc-chip-medium {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.cc-chip-hard {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.cc-chip-marks {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* LANGUAGE BUTTONS */
+.cc-langs {
+  display: flex;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .cc-lang-btn {
-  padding:5px 14px; border:none; background:transparent; cursor:pointer;
-  font-family:'Outfit',sans-serif; font-size:12px; font-weight:600;
-  color:#4b6080; transition:all .15s; display:flex; align-items:center; gap:5px;
+  padding: 5px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
 }
-.cc-lang-btn.active { background:rgba(0,172,193,.15); color:#00ACC1; }
-.cc-lang-btn:hover:not(.active) { color:#94a3b8; }
 
-/* 3-pane body */
-.cc-body { display:flex; flex:1; overflow:hidden; position:relative; }
+.cc-lang-btn.active {
+  background: #e0f2fe;
+  color: #0284c7;
+}
 
-/* Drag divider */
+/* BODY */
+.cc-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position-relative;
+}
+
+/* DIVIDER */
 .cc-divider {
-  width:5px; flex-shrink:0; cursor:col-resize;
-  background:rgba(99,179,237,.05); transition:background .15s; position:relative; z-index:10;
-}
-.cc-divider:hover, .cc-divider.active { background:rgba(0,172,193,.35); }
-.cc-divider::after {
-  content:''; position:absolute; top:50%; left:50%;
-  transform:translate(-50%,-50%); width:2px; height:36px;
-  border-radius:2px; background:rgba(99,179,237,.2);
+  width: 5px;
+  cursor: col-resize;
+  background: #e2e8f0;
 }
 
-/* Left: question */
+/* CENTRE */
+.cc-centre {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+   min-width: 0;
+}
+   .cc-editor-wrap {
+  flex: 1;
+  min-height: 0;
+  width:100%;
+}
 
-
-/* Centre */
-.cc-centre { display:flex; flex-direction:column; flex:1; min-width:200px; overflow:hidden; }
-
+/* EDITOR HEADER */
 .cc-editor-header {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:6px 14px; background:#0c1525; border-bottom:1px solid rgba(99,179,237,.08);
-  font-size:11px; color:#334155; font-weight:600; letter-spacing:1px; text-transform:uppercase; flex-shrink:0;
+  padding: 8px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
 }
-.cc-focus-pill {
-  display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700;
-  cursor:pointer; padding:3px 10px; border-radius:6px;
-  transition:all .15s;
-}
-.cc-focus-pill.on  { color:#00ACC1; background:rgba(0,172,193,.1);  border:1px solid rgba(0,172,193,.2); }
-.cc-focus-pill.off { color:#475569; background:rgba(71,85,105,.08); border:1px solid rgba(71,85,105,.15); }
-.cc-focus-dot { width:7px; height:7px; border-radius:50%; }
 
+/* SIGNATURE */
 .cc-sig-bar {
-  padding:7px 14px; background:#070c14; font-family:'JetBrains Mono',monospace; font-size:12px;
-  border-bottom:1px solid rgba(99,179,237,.06); flex-shrink:0; user-select:none;
+  padding: 8px 14px;
+  background: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #2563eb;
 }
 
-.cc-editor-wrap { flex:1; overflow:hidden; }
+/* IO SECTION */
+.cc-io {
+  height: 180px;
+  border-top: 1px solid #e2e8f0;
+}
 
-/* I/O strip */
-.cc-io { height:175px; flex-shrink:0; display:flex; flex-direction:column; border-top:1px solid rgba(99,179,237,.08); }
-.cc-io-tabs { display:flex; background:#0a1120; border-bottom:1px solid rgba(99,179,237,.06); flex-shrink:0; }
+.cc-io-tabs {
+  display: flex;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 .cc-io-tab {
-  padding:7px 16px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
-  border:none; background:transparent; cursor:pointer; color:#334155;
-  border-bottom:2px solid transparent; transition:all .15s;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
 }
-.cc-io-tab.active { color:#00ACC1; border-bottom-color:#00ACC1; }
-.cc-io-tab:hover:not(.active) { color:#64748b; }
-.cc-io-body { flex:1; overflow:auto; padding:10px 14px; background:#080d16; }
+
+.cc-io-tab.active {
+  color: #2563eb;
+  border-bottom: 2px solid #2563eb;
+}
+
+.cc-io-body {
+  padding: 10px;
+  background: #f8fafc;
+}
+
 .cc-io-ta {
-  width:100%; height:100%; background:transparent; border:none;
-  color:#e2e8f0; font-family:'JetBrains Mono',monospace; font-size:13px;
-  resize:none; outline:none; line-height:1.6;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #1e293b;
+  font-family: 'JetBrains Mono', monospace;
 }
-.cc-io-ta::placeholder { color:#1e293b; }
-.cc-out { font-family:'JetBrains Mono',monospace; font-size:13px; white-space:pre-wrap; line-height:1.6; margin:0; }
-.cc-out.ok   { color:#4ade80; }
-.cc-out.err  { color:#f87171; }
-.cc-out.idle { color:#334155; }
 
-/* Right: test cases */
+/* OUTPUT */
+.cc-out.ok {
+  color: #16a34a;
+}
+
+.cc-out.err {
+  color: #dc2626;
+}
+
+.cc-out.idle {
+  color: #64748b;
+}
+
+/* RIGHT PANEL */
 .cc-right {
-  display:flex; flex-direction:column; overflow:hidden;
-  background:#0a1120; border-left:1px solid rgba(99,179,237,.07); min-width:160px; max-width:45%;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
 }
-.cc-right-header {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:8px 12px; background:rgba(255,255,255,.01); border-bottom:1px solid rgba(99,179,237,.06);
-  font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#334155; flex-shrink:0;
-}
-.cc-right-inner { flex:1; overflow-y:auto; padding:12px; }
-.cc-right-inner::-webkit-scrollbar { width:4px; }
-.cc-right-inner::-webkit-scrollbar-thumb { background:rgba(99,179,237,.15); border-radius:4px; }
 
-.cc-tc { background:#111c2e; border:1px solid rgba(99,179,237,.1); border-radius:10px; overflow:hidden; margin-bottom:10px; }
-.cc-tc-head {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:7px 12px; background:rgba(255,255,255,.02); font-size:11px; font-weight:700; color:#475569;
+/* TEST CASE CARD */
+.cc-tc {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 10px;
 }
-.cc-tc-status { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
-.cc-tc-status.pass    { background:rgba(34,197,94,.15);  color:#22c55e; }
-.cc-tc-status.fail    { background:rgba(239,68,68,.1);   color:#ef4444; }
-.cc-tc-status.idle    { background:rgba(100,116,139,.1); color:#475569; }
-.cc-tc-status.running { background:rgba(56,189,248,.1);  color:#38bdf8; }
-.cc-tc-body { padding:10px 12px; display:flex; flex-direction:column; gap:7px; }
-.cc-tc-lbl { font-size:10px; color:#334155; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:2px; }
+
+
+  .cc-tc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #475569;
+
+}
+  .cc-tc-title {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.cc-tc-status {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  min-width: 80px;
+  text-align: center;
+}
+
+.cc-tc-body {
+  padding: 10px;
+}
+
+/* TEST INPUT BOX */
 .cc-tc-val {
-  font-family:'JetBrains Mono',monospace; font-size:11px; color:#64748b;
-  background:#080d16; padding:4px 8px; border-radius:5px; display:block;
-  white-space:pre-wrap; word-break:break-all;
+  background: #ffffff;
+  color: #2563eb;
+  padding: 6px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
 }
-.cc-tc-val.ok  { color:#4ade80; }
-.cc-tc-val.bad { color:#f87171; }
+
+/* SCORE */
+.cc-score {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 10px 18px;
+}
+
+/* ACTION BAR */
+.cc-actions {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 10px 18px;
+}
+
+/* BUTTONS */
+.cc-btn-run {
+  background: #3b82f6;
+  color: white;
+}
+
+.cc-btn-submit {
+  background: #22c55e;
+  color: white;
+}
+  /* FIX MISSING CLASSES */
+
+.cc-topbar-l {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-topbar-r {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-focus-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.cc-focus-pill.on {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.cc-focus-pill.off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.cc-focus-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cc-right-header {
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+  color: #475569;
+}
+
+.cc-right-inner {
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.cc-tc-status {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.cc-tc-status.pass {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.cc-tc-status.fail {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.cc-tc-status.running {
+  background: #e0f2fe;
+  color: #0284c7;
+}
 
 .cc-locked-box {
-  text-align:center; padding:14px 10px;
-  background:rgba(15,23,42,.6); border:1px dashed rgba(99,179,237,.12);
-  border-radius:10px; font-size:12px; color:#334155; line-height:1.7;
+  padding: 12px;
+  text-align: center;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+  color: #64748b;
 }
-.cc-locked-box strong { color:#3d5166; display:block; margin-bottom:3px; font-size:13px; }
 
-/* Score bar */
-.cc-score {
-  display:flex; align-items:center; gap:14px; padding:10px 18px;
-  background:#0c1525; border-top:1px solid rgba(99,179,237,.1);
-  animation:slideUp .4s cubic-bezier(.16,1,.3,1); flex-shrink:0;
+.cc-btns {
+  display: flex;
+  gap: 10px;
 }
-@keyframes slideUp { from{transform:translateY(14px);opacity:0} to{transform:none;opacity:1} }
-.cc-score-num { font-size:20px; font-weight:800; }
-.score-ok   { color:#22c55e; }
-.score-part { color:#facc15; }
-.score-fail { color:#ef4444; }
-.cc-prog { flex:1; height:5px; background:#1e293b; border-radius:3px; overflow:hidden; }
-.cc-prog-fill { height:100%; border-radius:3px; transition:width .6s ease; }
 
-/* Action bar */
-.cc-actions {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0 18px; height:50px; flex-shrink:0;
-  background:#0c1525; border-top:1px solid rgba(99,179,237,.08);
-}
-.cc-keys { display:flex; gap:14px; font-size:11px; color:#1e293b; }
-.cc-keys kbd {
-  background:#1a2540; border:1px solid rgba(99,179,237,.15); border-radius:4px;
-  padding:1px 5px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#334155;
-}
-.cc-btns { display:flex; gap:10px; }
 .cc-btn {
-  padding:8px 20px; border:none; border-radius:8px;
-  font-family:'Outfit',sans-serif; font-size:13px; font-weight:700;
-  cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
 }
-.cc-btn:disabled { opacity:.4; cursor:not-allowed; }
-.cc-btn:not(:disabled):hover { transform:translateY(-1px); filter:brightness(1.1); }
-.cc-btn-run    { background:#0e7490; color:#fff; }
-.cc-btn-submit { background:#15803d; color:#fff; }
-.cc-spin {
-  width:13px; height:13px; border:2px solid rgba(255,255,255,.2);
-  border-top-color:#fff; border-radius:50%;
-  animation:spin .55s linear infinite; display:inline-block;
-}
-@keyframes spin { to{transform:rotate(360deg)} }
-`;
 
+.cc-spin {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ccc;
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cc-prog {
+  flex: 1;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+.cc-prog-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+  .cc-toggle-btn {
+  position: absolute;
+  right: 16px;
+  top: 60px;
+  z-index: 20;
+
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transition: all 0.2s ease;
+}
+
+.cc-toggle-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+.cc-toggle-btn:active {
+  transform: scale(0.97);
+}
+  /* Show Test Cases Button (next to Output tab) */
+.cc-show-tc-btn {
+  margin-left: auto;   /* pushes button to right */
+  margin-right: 8px;
+
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+
+  border: none;
+  border-radius: 6px;
+
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.cc-show-tc-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Click effect */
+.cc-show-tc-btn:active {
+  transform: scale(0.97);
+}
+
+/* Optional: when active (showing test cases) */
+.cc-show-tc-btn.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+  /* FIX TEST CASE LAYOUT */
+
+.cc-tc-head {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cc-tc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cc-tc-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cc-tc-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cc-tc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-tc-lbl {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+`;
 const VISIBLE_TC = 2; // visible before submit
 
 export default function CodeCompiler({ question, onScoreUpdate }) {
+  const [showTestCases, setShowTestCases] = useState(true);
   const [language,    setLanguage]  = useState("python");
   const [code,        setCode]      = useState(() => buildCode("python", question));
   const [focusMode,   setFocusMode] = useState(true);
@@ -278,16 +582,23 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
   const langId = () => LANG_META[language].id;
 
   const handleRun = useCallback(async () => {
-    setLoading(true); setIoTab("output");
-    setOutput({ text: "Running…", type: "idle" });
-    try {
-      const res = await executeCode(code, langId(), customInput);
-      setOutput(res.stderr
-        ? { text: res.stderr, type: "err" }
-        : { text: res.stdout || "(no output)", type: "ok" });
-    } catch { setOutput({ text: "Execution failed.", type: "err" }); }
-    setLoading(false);
-  }, [code, language, customInput]);
+     setShowTestCases(true); // ✅ AUTO SHOW PANEL
+
+  setLoading(true); 
+  setIoTab("output");
+  setOutput({ text: "Running…", type: "idle" });
+
+  try {
+    const res = await executeCode(code, langId(), customInput);
+    setOutput(res.stderr
+      ? { text: res.stderr, type: "err" }
+      : { text: res.stdout || "(no output)", type: "ok" });
+  } catch {
+    setOutput({ text: "Execution failed.", type: "err" });
+  }
+
+  setLoading(false);
+}, [code, language, customInput]);
 
   const handleSubmit = useCallback(async () => {
     setLoading(true); setSubmitted(false); setScore(null);
@@ -390,8 +701,9 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
             <div className="cc-editor-wrap">
               <Editor
                 height="100%"
+                width="100%"
                 language={language}
-                theme="vs-dark"
+                theme="light"
                 value={code}
                 onChange={v => setCode(v ?? "")}
                 options={{
@@ -413,6 +725,12 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
               <div className="cc-io-tabs">
                 <button className={`cc-io-tab${ioTab === "input" ? " active" : ""}`} onClick={() => setIoTab("input")}>⌨ Custom Input</button>
                 <button className={`cc-io-tab${ioTab === "output" ? " active" : ""}`} onClick={() => setIoTab("output")}>📤 Output</button>
+                <button
+    className="cc-show-tc-btn"
+    onClick={() => setShowTestCases(prev => !prev)}
+  >
+    {showTestCases ? "Hide Test Cases" : "Show Test Cases"}
+  </button>
               </div>
               <div className="cc-io-body">
                 {ioTab === "input" && (
@@ -426,10 +744,15 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
           </div>
 
           {/* DIVIDER 2 — right resize (inverted) */}
-          <div className={`cc-divider${rightDragging ? " active" : ""}`} onMouseDown={rightDrag} title="Drag to resize" />
-
+          {showTestCases && (
+          <div className={`cc-divider${rightDragging ? " active" : ""}`} 
+          onMouseDown={rightDrag}
+           />
+            
+)}
           {/* RIGHT: Test cases */}
-          <div className="cc-right" style={{ width: rightW, flexShrink: 0 }}>
+          {showTestCases && (
+          <div className="cc-right" style={{ width: rightW ,flexShrink :0  }}>
             <div className="cc-right-header">
               <span>🧪 Test Cases</span>
               {submitted && (
@@ -446,23 +769,30 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
                   const status = r?.status ?? "idle";
                   return (
                     <div className="cc-tc" key={i}>
-                      <div className="cc-tc-head">
-                        <span>Test {i + 1}</span>
-                        <span className={`cc-tc-status ${status}`}>
-                          {status === "idle" ? "—" : status === "running" ? "⏳" : status === "pass" ? "✓ Pass" : "✗ Fail"}
-                        </span>
-                      </div>
+                     <div className="cc-tc-head">
+  <span className="cc-tc-title">Test {i + 1}</span>
+
+  <span className={`cc-tc-status ${status}`}>
+    {status === "idle"
+      ? "—"
+      : status === "running"
+      ? "⏳ Running"
+      : status === "pass"
+      ? "✓ Pass"
+      : "✗ Fail"}
+  </span>
+</div>
                       <div className="cc-tc-body">
-                        <div>
+                        <div className="cc-tc-block">
                           <div className="cc-tc-lbl">Input</div>
                           <code className="cc-tc-val">{tc.input || "(none)"}</code>
                         </div>
-                        <div>
+                        <div className="cc-tc-block">
                           <div className="cc-tc-lbl">Expected</div>
                           <code className="cc-tc-val">{tc.expected}</code>
                         </div>
                         {r && (r.status === "pass" || r.status === "fail") && (
-                          <div>
+                          <div className="cc-tc-block">
                             <div className="cc-tc-lbl">Your Output</div>
                             <code className={`cc-tc-val ${r.status === "pass" ? "ok" : "bad"}`}>
                               {r.got || r.stderr || "(none)"}
@@ -473,7 +803,7 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
                     </div>
                   );
                 })}
-
+               
               {!submitted && question.testCases?.length > VISIBLE_TC && (
                 <div className="cc-locked-box">
                   <strong>🔒 {question.testCases.length - VISIBLE_TC} hidden test cases</strong>
@@ -482,9 +812,9 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
               )}
             </div>
           </div>
-
+          )}
         </div>
-
+          
         {/* Score bar */}
         {scoreInfo && (
           <div className="cc-score">
@@ -505,8 +835,8 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
         {/* Action bar */}
         <div className="cc-actions">
           <div className="cc-keys">
-            <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Run</span>
-            <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> Submit</span>
+            <span> Run</span>
+            <span> Submit</span>
           </div>
           <div className="cc-btns">
             <button className="cc-btn cc-btn-run" onClick={handleRun} disabled={loading}>
