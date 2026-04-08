@@ -5,14 +5,14 @@ import EditProfile from "./EditProfile";
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-  body { background:#060a14; }
-  .td-root { min-height:100vh; background:#060a14; font-family:'DM Mono',monospace; }
+  body { background:white; }
+  .td-root { min-height:100vh; background:white; font-family:'DM Mono',monospace; }
   .td-grid { position:fixed; inset:0; background-image:linear-gradient(rgba(0,172,193,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,172,193,.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
-  .td-nav { position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 32px; background:rgba(6,10,20,.95); border-bottom:1px solid rgba(0,172,193,.1); backdrop-filter:blur(10px); flex-wrap:wrap; gap:10px; }
+  .td-nav { position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 32px; background:white; border-bottom:1px solid rgba(0,172,193,.1); backdrop-filter:blur(10px); flex-wrap:wrap; gap:10px; }
   .td-nav-brand { display:flex; align-items:center; gap:10px; }
   .td-dot { width:8px; height:8px; border-radius:50%; background:#00ACC1; box-shadow:0 0 10px #00ACC1; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);} }
-  .td-brand-text { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:#00ACC1; letter-spacing:1px; }
+  .td-brand-text { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:blue; letter-spacing:1px; }
   .td-brand-role { font-size:10px; color:#475569; margin-left:4px; }
   .td-nav-right { display:flex; align-items:center; gap:16px; }
   .td-nav-greeting { font-size:11px; color:#64748b; }
@@ -22,50 +22,105 @@ const css = `
   .td-logout { padding:6px 14px; background:transparent; border:1px solid rgba(239,68,68,.3); border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:#ef4444; cursor:pointer; transition:all .2s; }
   .td-logout:hover { background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.5); }
   .td-body { position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:32px 24px 80px; }
-  .td-tabs { display:flex; gap:6px; margin-bottom:32px; background:rgba(15,23,42,.6); border:1px solid rgba(148,163,184,.08); border-radius:14px; padding:6px; flex-wrap:wrap; }
-  .td-tab { padding:10px 20px; border:none; border-radius:10px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; background:transparent; color:#475569; display:flex; align-items:center; gap:7px; }
+  .td-tabs { display:flex; gap:6px; margin-bottom:32px; background:linear-gradient(135deg, #0f4fd6 0%,#1e63e9 35%, #3b82f6 70%, #60a5fa 100%); border:1px solid rgba(148,163,184,.08); border-radius:14px; padding:6px; flex-wrap:wrap; }
+  .td-tab { padding:10px 20px; border:none; border-radius:10px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; background:transparent; color:white; display:flex; align-items:center; gap:7px; }
   .td-tab.active { background:rgba(0,172,193,.15); color:#00ACC1; box-shadow:0 0 0 1px rgba(0,172,193,.25); }
   .td-tab:not(.active):hover { color:#94a3b8; background:rgba(148,163,184,.06); }
-  .td-section-title { font-family:'Syne',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#475569; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+  .td-section-title { font-family:'Syne',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:black; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
   .td-section-title::after { content:''; flex:1; height:1px; background:rgba(148,163,184,.08); }
+  .td-section-title {
+  font-family: 'Syne', sans-serif;   /* keep heading font */
+  font-size: 14px;                  /* slightly bigger */
+  font-weight: 800;                 /* bold */
+  letter-spacing: 1px;              /* reduce too much spacing */
+  text-transform: none;             /* ❌ remove ALL CAPS */
+  color: #0f172a;                   /* dark clean color */
+}
   .news-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
-  .news-card { background:rgba(15,23,42,.8); border:1px solid rgba(148,163,184,.08); border-radius:14px; padding:18px 20px; transition:all .25s; cursor:pointer; text-decoration:none; display:block; }
-  .news-card:hover { border-color:rgba(0,172,193,.3); transform:translateY(-2px); box-shadow:0 8px 32px rgba(0,172,193,.08); }
+  .news-card {  box-shadow: 0 2px 6px rgba(0,0,0,0.05); background:white; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; transition:all .25s; cursor:pointer; text-decoration:none; display:block; }
+  .news-card:hover { border-color:rgba(0,172,193,.3); transform:translateY(-2px); box-shadow:10px 8px 32px black }
   .news-card-meta { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
   .news-card-source { font-size:10px; color:#00ACC1; font-weight:600; letter-spacing:1px; text-transform:uppercase; }
   .news-card-pts { font-size:10px; color:#475569; }
-  .news-card-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:#e2e8f0; line-height:1.5; margin-bottom:10px; }
+  .news-card-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:black; line-height:1.5; margin-bottom:10px; }
   .news-card-url { font-size:10px; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .news-loading { display:flex; align-items:center; gap:10px; color:#475569; font-size:13px; padding:40px 0; }
   .news-spinner { width:18px; height:18px; border:2px solid rgba(0,172,193,.2); border-top-color:#00ACC1; border-radius:50%; animation:spin .8s linear infinite; }
   @keyframes spin { to{transform:rotate(360deg);} }
-  .news-refresh { padding:8px 18px; background:transparent; border:1px solid rgba(0,172,193,.3); border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:#00ACC1; cursor:pointer; transition:all .2s; margin-bottom:20px; }
-  .news-refresh:hover { background:rgba(0,172,193,.08); }
+  .news-refresh { padding:8px 18px; background:transparent; border:1px solid blue; border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:blue; cursor:pointer; transition:all .2s; margin-bottom:20px; }
+  .news-refresh:hover { background:white}
   .mode-cards { display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:700px; }
   @media(max-width:580px){.mode-cards{grid-template-columns:1fr;}}
-  .mode-card { background:rgba(15,23,42,.8); border:1.5px solid rgba(148,163,184,.1); border-radius:20px; padding:28px 24px; cursor:pointer; transition:all .25s; }
-  .mode-card.practice:hover { border-color:rgba(34,197,94,.4); box-shadow:0 12px 40px rgba(34,197,94,.1); transform:translateY(-3px); }
-  .mode-card.test:hover     { border-color:rgba(0,172,193,.4);  box-shadow:0 12px 40px rgba(0,172,193,.1);  transform:translateY(-3px); }
+  .mode-card { background:white; border:1.5px solid rgba(148,163,184,.1); border-radius:20px; padding:28px 24px; cursor:pointer; transition:all .25s; }
+  .mode-card.practice:hover { border-color:black; box-shadow:0 12px 40px black; transform:translateY(-3px); }
+  .mode-card.test:hover     { border-color:black;  box-shadow:0 12px 40px black;  transform:translateY(-3px); }
   .mode-icon  { font-size:36px; margin-bottom:14px; }
-  .mode-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#f1f5f9; margin-bottom:8px; }
+  .mode-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:black; margin-bottom:8px; }
   .mode-desc  { font-size:12px; color:#64748b; line-height:1.7; margin-bottom:18px; }
   .mode-btn { width:100%; padding:11px; border:none; border-radius:10px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:#fff; cursor:pointer; transition:all .2s; }
   .btn-p { background:linear-gradient(135deg,#22c55e,#16a34a); }
   .btn-t { background:linear-gradient(135deg,#00ACC1,#0891b2); }
   .mode-btn:hover { filter:brightness(1.1); }
   .act-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
-  .act-card { background:rgba(15,23,42,.8); border:1px solid rgba(148,163,184,.08); border-radius:14px; padding:20px; transition:border-color .2s; }
-  .act-card:hover { border-color:rgba(167,139,250,.3); }
+  .act-card {
+  background: white;   /* ✅ white like practice */
+  border: 1.5px solid rgba(148,163,184,.1);
+  border-radius: 20px;
+  padding: 28px 24px;
+  transition: all .25s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+   font-family: 'Poppins', sans-serif;
+     border: 1.5px solid white;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+}
+  
+
+.act-card:hover {
+  border-color: #00ACC1;
+  transform: translateY(-3px);
+ 
+}
   .act-card-icon { font-size:32px; margin-bottom:12px; }
-  .act-card-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:#e2e8f0; margin-bottom:8px; }
-  .act-card-desc  { font-size:12px; color:#64748b; line-height:1.6; margin-bottom:16px; }
+  .act-card-title {
+  color: black;   /* change from #e2e8f0 */
+  margin-bottom: 10px; 
+}
+
+.act-card-desc {
+  color: #64748b;  /* keep same as practice */
+  margin-bottom: 12px;
+  line-height: 1.6; 
+}
   .act-tag { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:600; background:rgba(167,139,250,.1); border:1px solid rgba(167,139,250,.25); color:#a78bfa; margin-right:6px; }
   .act-expand { margin-top:14px; padding:10px 0; }
-  .act-puzzle { background:rgba(6,10,20,.6); border:1px solid rgba(0,172,193,.15); border-radius:10px; padding:16px; margin-top:10px; }
+  .act-puzzle {
+  background: #f8fafc;   /* light gray */
+  border: 1px solid rgba(0,172,193,.15);
+}
   .act-puzzle-q { font-size:13px; color:#cbd5e1; margin-bottom:12px; line-height:1.6; }
-  .act-puzzle-code { background:#0a0f1a; border-radius:8px; padding:12px; font-size:12px; color:#00ACC1; font-family:'DM Mono',monospace; margin-bottom:12px; white-space:pre; overflow-x:auto; }
-  .act-reveal-btn { padding:8px 16px; background:rgba(0,172,193,.1); border:1px solid rgba(0,172,193,.25); border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:#00ACC1; cursor:pointer; transition:all .2s; }
-  .act-reveal-btn:hover { background:rgba(0,172,193,.2); }
+  .act-puzzle-code {
+  background: #f1f5f9;  /* light */
+  color: #00ACC1;
+}
+  .act-reveal-btn {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #00ACC1, #0891b2);  /* 🔥 sky blue gradient */
+  border: none;
+  border-radius: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.act-reveal-btn:hover {
+  filter: brightness(1.1);
+}
   .act-answer { margin-top:10px; padding:10px 14px; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.2); border-radius:8px; font-size:12px; color:#86efac; }
   .quiz-wrap { max-width:620px; }
   .quiz-q-box { background:rgba(15,23,42,.8); border:1px solid rgba(0,172,193,.15); border-radius:14px; padding:24px; margin-bottom:20px; }
@@ -248,12 +303,12 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut, att
             <div className="td-dot" />
             <div>
               <span className="td-brand-text">ThopsTech · Trainer Portal</span>
-              <span className="td-brand-role"> — {profile?.employee_id || "Trainer"}</span>
+              <span className="td-brand-role"><b> — {profile?.employee_id || "Trainer"}</b></span>
             </div>
           </div>
           <div className="td-nav-right">
             <LiveTime />
-            <span className="td-nav-greeting">{greeting}, <span>{firstName}</span></span>
+            <span className="td-nav-greeting"><b>{greeting},</b> <span><b>{firstName}</b></span></span>
             <button
               onClick={() => setShowEdit(true)}
               style={{ padding:"6px 14px", background:"transparent", border:"1px solid rgba(0,172,193,.3)", borderRadius:"8px", fontFamily:"'DM Mono',monospace", fontSize:"11px", color:"#00ACC1", cursor:"pointer", transition:"all .2s" }}
@@ -329,38 +384,63 @@ export default function TrainerDashboard({ profile, onModeSelect, onSignOut, att
               </div>
             </div>
           )}
-
           {tab === "activities" && (
-            <div>
-              <div className="td-section-title">Fun Programming Activities</div>
-              <div className="act-grid">
-                {ACTIVITIES.map((act, i) => (
-                  <div key={i} className="act-card">
-                    <div className="act-card-icon">{act.icon}</div>
-                    <div className="act-card-title">{act.title}</div>
-                    <div className="act-card-desc">{act.desc}</div>
-                    <span className="act-tag">{act.tag}</span>
-                    <div className="act-expand">
-                      <button className="act-reveal-btn" onClick={() => setOpenAct(openAct === i ? null : i)}>
-                        {openAct === i ? "▲ Hide" : "▼ Open Challenge"}
-                      </button>
-                      {openAct === i && (
-                        <div className="act-puzzle">
-                          <div className="act-puzzle-q">{act.puzzle.q}</div>
-                          <pre className="act-puzzle-code">{act.puzzle.code}</pre>
-                          <button className="act-reveal-btn" onClick={() => setRevealed(r => ({ ...r, [i]: !r[i] }))}>
-                            {revealed[i] ? "🙈 Hide Answer" : "💡 Reveal Answer"}
-                          </button>
-                          {revealed[i] && <div className="act-answer">✅ {act.puzzle.answer}</div>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+  <div>
+    <div className="td-section-title">Fun Programming Activities</div>
 
+    <div className="act-grid">
+      {ACTIVITIES.map((act, i) => (
+        <div key={i} className="act-card">
+
+          {/* TOP CONTENT */}
+          <div className="act-content">
+            <div className="act-card-icon">{act.icon}</div>
+            <div className="act-card-title">{act.title}</div>
+            <div className="act-card-desc">{act.desc}</div>
+            <span className="act-tag">{act.tag}</span>
+          </div>
+
+          {/* BUTTON SECTION (ALWAYS BOTTOM) */}
+          <div className="act-expand">
+            <button
+              className="act-reveal-btn"
+              onClick={() => setOpenAct(openAct === i ? null : i)}
+            >
+              {openAct === i ? "▲ Hide" : "▼ Open Challenge"}
+            </button>
+
+            {openAct === i && (
+              <div className="act-puzzle">
+                <div className="act-puzzle-q">{act.puzzle.q}</div>
+
+                <pre className="act-puzzle-code">
+                  {act.puzzle.code}
+                </pre>
+
+                <button
+                  className="act-reveal-btn"
+                  onClick={() =>
+                    setRevealed(r => ({ ...r, [i]: !r[i] }))
+                  }
+                >
+                  {revealed[i] ? "🙈 Hide Answer" : "💡 Reveal Answer"}
+                </button>
+
+                {revealed[i] && (
+                  <div className="act-answer">
+                    ✅ {act.puzzle.answer}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+         
           {tab === "quiz" && (
             <div className="quiz-wrap">
               <div className="td-section-title">Quick Tech Quiz · 10 Questions</div>
