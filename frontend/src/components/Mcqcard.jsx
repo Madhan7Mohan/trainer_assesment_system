@@ -4,36 +4,83 @@ import { Box, Typography, Button, Paper, Chip } from "@mui/material";
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
 
+  /* OPTION BOX */
   .mcq-opt {
-    cursor: pointer; padding: 12px 16px; border-radius: 10px;
-    border: 1.5px solid rgba(148,163,184,0.12);
-    background: rgba(15,23,42,0.8); color: #cbd5e1;
-    font-family: 'DM Mono', monospace; font-size: 13px;
-    transition: all 0.2s; margin-bottom: 10px;
-    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    padding: 12px 16px;
+    border-radius: 10px;
+
+    background: #ffffff;              /* pure white */
+    color: #000000;                   /* black text */
+
+    border: 1px solid #e2e8f0;        /* light border */
+
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+
+    transition: all 0.2s;
+    margin-bottom: 10px;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
     user-select: none;
   }
-  .mcq-opt:hover {
-    border-color: rgba(0,172,193,0.4);
-    background: rgba(0,172,193,0.06);
-    color: #e2e8f0;
-  }
-  .mcq-opt.selected {
-    border-color: #00ACC1;
-    background: rgba(0,172,193,0.12);
-    color: #fff;
-  }
-  .mcq-opt.correct { border-color: #22c55e; background: rgba(34,197,94,0.12);  color: #86efac; }
-  .mcq-opt.wrong   { border-color: #ef4444; background: rgba(239,68,68,0.08);  color: #fca5a5; }
 
+  /* HOVER */
+  .mcq-opt:hover {
+    background: #f8fafc;
+    border-color: #38bdf8;
+  }
+
+  /* SELECTED */
+  .mcq-opt.selected {
+    border-color: #38bdf8;
+    background: #e0f2fe;
+    color: #000000;
+  }
+
+  /* CORRECT */
+  .mcq-opt.correct {
+    border-color: #22c55e;
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  /* WRONG */
+  .mcq-opt.wrong {
+    border-color: #ef4444;
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  /* OPTION LETTER (A, B, C, D) */
   .mcq-opt-letter {
-    width: 28px; height: 28px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 12px; flex-shrink: 0;
-    background: rgba(0,172,193,0.15); color: #00ACC1;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-weight: 700;
+    font-size: 12px;
+
+    flex-shrink: 0;
+
+    background: #e0f2fe;
+    color: #0284c7;
+
     transition: all 0.2s;
   }
-  .mcq-opt.selected .mcq-opt-letter { background: #00ACC1; color: #fff; }
+
+  /* SELECTED LETTER */
+  .mcq-opt.selected .mcq-opt-letter {
+    background: #38bdf8;
+    color: #ffffff;
+  }
 `;
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -48,8 +95,11 @@ export default function McqCard({
     <>
       <style>{css}</style>
       <Box sx={{
-        background: "linear-gradient(135deg,#1e293b,#0f172a)",
-        borderRadius: 3, p: 3, minHeight: "100%", color: "#fff",
+        background: "#ffffff",
+color: "#000000",
+border: "1px solid #e2e8f0",
+boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        borderRadius: 3, p: 3, minHeight: "100%"
       }}>
 
         {/* Header */}
@@ -72,7 +122,7 @@ export default function McqCard({
           p: 2.5, background: "rgba(0,172,193,0.05)",
           border: "1px solid rgba(0,172,193,0.15)", borderRadius: 2, mb: 3,
         }}>
-          <Typography sx={{ color: "#f1f5f9", fontSize: 15, lineHeight: 1.8, fontWeight: 500 }}>
+          <Typography sx={{ color: "#000000", fontSize: 15, lineHeight: 1.8, fontWeight: 500 }}>
             {question.question}
           </Typography>
         </Paper>
@@ -120,10 +170,21 @@ export default function McqCard({
               Final Submit ✓
             </Button>
           ) : !isLast ? (
-            <Button variant="contained" onClick={() => setCurrentIndex(p => p + 1)}
-              sx={{ background: "#00ACC1", fontWeight: 700 }}>
-              Next →
-            </Button>
+            <Button
+  variant="contained"
+  onClick={() => setCurrentIndex(p => p + 1)}
+  sx={{
+    background: "#38bdf8",   // ✅ sky blue
+    color: "#ffffff",
+    fontWeight: 700,
+
+    "&:hover": {
+      background: "#0ea5e9",  // slightly darker sky blue
+    }
+  }}
+>
+  Next →
+</Button>
           ) : (
             <Box />
           )}

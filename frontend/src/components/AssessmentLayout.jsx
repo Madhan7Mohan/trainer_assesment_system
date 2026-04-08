@@ -283,10 +283,10 @@ const questions = {
       : true
   ),
   aptitude: allQuestions.aptitude.filter(q =>
-    isPractice
-      ? (q.difficulty || "").toLowerCase() === difficulty.toLowerCase()
-      : true
-  ),
+  isPractice
+    ? !q.difficulty || q.difficulty.toLowerCase() === difficulty.toLowerCase()
+    : true
+),
   sql: allQuestions.sql.filter(q =>
     isPractice
       ? (q.difficulty || "").toLowerCase() === difficulty.toLowerCase()
@@ -823,26 +823,56 @@ color: "#ffffff",
         )}
 
         {section === "sql" && (
-          <>
-            <Box sx={{ width: "36%", overflowY: "auto", borderRight: "1px solid rgba(0,172,193,0.1)",
-              "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { background: "#1e3a4a" } }}>
-              <QuestionCard
-                question={{ ...currentQ, title: `SQL Q${qIndex + 1}`, description: currentQ.question, explanation: currentQ.hint }}
-                currentIndex={qIndex}
-                setCurrentIndex={setQIndex}
-                total={sectionQs.length}
-                isLast={qIndex === sectionQs.length - 1}
-                onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
-              />
-            </Box>
-            <Box sx={{ flex: 1, overflowY: "auto" }}>
-              <SqlCompiler
-                question={currentQ}
-                onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
-              />
-            </Box>
-          </>
+  <>
+    <Box
+      sx={{
+        width: showQuestion ? "36%" : "0%",
+        overflow: "hidden",
+        transition: "all 0.4s ease",
+        borderRight: showQuestion ? "1px solid rgba(0,172,193,0.1)" : "none"
+      }}
+    >
+      <Box
+        sx={{
+          opacity: showQuestion ? 1 : 0,
+          transform: showQuestion ? "translateX(0)" : "translateX(-40px)",
+          transition: "all 0.3s ease",
+          height: "100%"
+        }}
+      >
+        {showQuestion && (
+          <QuestionCard
+            question={{
+              ...currentQ,
+              title: `SQL Q${qIndex + 1}`,
+              description: currentQ.question,
+              explanation: currentQ.hint
+            }}
+            currentIndex={qIndex}
+            setCurrentIndex={setQIndex}
+            total={sectionQs.length}
+            isLast={qIndex === sectionQs.length - 1}
+            onFinalSubmit={!isPractice ? () => setSubmitDlg(true) : null}
+          />
         )}
+      </Box>
+    </Box>
+
+    <Box
+      sx={{
+        flex: 1,
+        width: showQuestion ? "64%" : "100%",
+        transition: "all 0.4s ease",
+        overflowY: "auto"
+      }}
+    >
+      <SqlCompiler
+        question={currentQ}
+        onScoreUpdate={(s) => handleScoreUpdate(currentQ.id, s)}
+      />
+    </Box>
+  </>
+)}
       </Box>
 
       {/* ── Final Submit Dialog ── */}
