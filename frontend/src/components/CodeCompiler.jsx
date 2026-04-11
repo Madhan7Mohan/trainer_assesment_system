@@ -375,6 +375,8 @@ const css = `
 .cc-right-inner {
   padding: 10px;
   overflow-y: auto;
+  padding-bottom: 100px;
+   height: 100%;
 }
 
 .cc-tc-status {
@@ -835,8 +837,7 @@ export default function CodeCompiler({ question, onScoreUpdate }) {
         {/* Action bar */}
         <div className="cc-actions">
           <div className="cc-keys">
-            <span> Run</span>
-            <span> Submit</span>
+            
           </div>
           <div className="cc-btns">
             <button className="cc-btn cc-btn-run" onClick={handleRun} disabled={loading}>
