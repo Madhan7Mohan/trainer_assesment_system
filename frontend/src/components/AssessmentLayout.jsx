@@ -520,7 +520,9 @@ const currentQ =
 }
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", background: "#f8fbff", overflow: "hidden" }}>
+    <Box sx={{ display: "flex",
+  height: "100vh",
+  background: "linear-gradient(180deg, #2563eb 0%, #38bdf8 100%)", overflow: "hidden" }}>
 
       {/* ── Copy-paste blocked toast ── */}
       {showCopyToast && (
@@ -547,13 +549,25 @@ const currentQ =
       {/* ── Sidebar ── */}
       <Drawer variant="permanent" sx={{
         width: DRAWER_WIDTH, flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: DRAWER_WIDTH,
-background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-borderRight: "none",
-color: "#ffffff",
-          overflow: "hidden", display: "flex", flexDirection: "column"
-        }
+      "& .MuiDrawer-paper": {
+  width: DRAWER_WIDTH,
+
+  // ✅ New gradient (closer to your image)
+  background: "linear-gradient(180deg, #2b6de0 0%, #3bb3e6 100%)",
+
+  // ✅ Glass effect
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+
+  // ✅ Soft border + shadow
+  borderRight: "1px solid rgba(255,255,255,0.15)",
+  boxShadow: "0 10px 40px rgba(37, 99, 235, 0.4)",
+
+  color: "#ffffff",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column"
+}
       }}>
         {/* Logo */}
         {/* Logo */}
@@ -608,22 +622,17 @@ color: "#ffffff",
             }}
             sx={{
   flex: 1,
-  fontSize: 10,
-  py: 0.5,
-
-  background: "#ffffff",   // always white
-  color: "#000000",        // always black
-
-  border: difficulty === level
-    ? "2px solid #2563eb"  // selected → blue border
-    : "1px solid #e2e8f0",
-
-  fontWeight: difficulty === level ? "700" : "500",
-
-  opacity: isLocked ? 0.5 : 1,
-
-  "&:hover": {
-    background: "#f8fafc"
+        fontSize: 10,
+        py: 0.5,
+        background: "#ffffff",
+        color: "#000000",
+        border: difficulty === level
+          ? "2px solid #2563eb"
+          : "1px solid #e2e8f0",
+        fontWeight: difficulty === level ? "700" : "500",
+        opacity: isLocked ? 0.5 : 1,
+        "&:hover": {
+          background: "#f8fafc"
   }
 }}
           >

@@ -4,43 +4,44 @@ import { supabase } from "../supabaseClient";
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  .ep-root { min-height:100vh; background:#060a14; font-family:'DM Mono',monospace; padding-bottom:80px; }
+  .ep-root { min-height:100vh; background:#ffffff; font-family:'DM Mono',monospace; padding-bottom:0; }
   .ep-grid { position:fixed; inset:0; background-image:linear-gradient(rgba(0,172,193,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,172,193,.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
-  .ep-nav { position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 32px; background:rgba(6,10,20,.95); border-bottom:1px solid rgba(0,172,193,.1); backdrop-filter:blur(10px); }
+  .ep-nav { position:sticky; top:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 32px; background:blue; border-bottom:1px solid rgba(0,172,193,.1); backdrop-filter:blur(10px); }
   .ep-nav-title { font-family:'Syne',sans-serif; font-weight:800; font-size:15px; color:#f1f5f9; display:flex; align-items:center; gap:10px; }
-  .ep-nav-back { padding:7px 16px; background:transparent; border:1px solid rgba(148,163,184,.2); border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:#94a3b8; cursor:pointer; transition:all .2s; }
-  .ep-nav-back:hover { border-color:rgba(148,163,184,.4); color:#e2e8f0; }
-  .ep-body { position:relative; z-index:1; max-width:680px; margin:0 auto; padding:36px 24px; }
-  .ep-section { font-family:'Syne',sans-serif; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#475569; margin:28px 0 16px; display:flex; align-items:center; gap:10px; }
-  .ep-section::after { content:''; flex:1; height:1px; background:rgba(148,163,184,.08); }
+  .ep-nav-back { padding:7px 16px; background:blue; border:2px solid white; border-radius:10px; font-family:'DM Mono',monospace; font-size:11px; color:white; cursor:pointer; transition:all .2s; }
+  .ep-nav-back:hover { border-color:white ; color:white; }
+  .ep-body { position:relative; z-index:1; max-width:520px; margin:80px auto; padding:30px 24px;  background: #ffffff;  border: 1px solid #e2e8f0;border-radius: 14px;     box-shadow: 0 10px 30px rgba(0,0,0,0.08);      }
+  .ep-section { font-family:'Syne',sans-serif; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:black; margin:24px 0 16px; display:flex; align-items:center; gap:10px; }
+  .ep-section::after { content:''; flex:1; height:1px; background:#e2e8f0 }
   .ep-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media(max-width:560px) { .ep-grid2 { grid-template-columns:1fr; } }
   .ep-full { grid-column:1/-1; }
   .ep-field { display:flex; flex-direction:column; }
-  .ep-label { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:#94a3b8; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-  .ep-lock-icon { font-size:10px; }
-  .ep-input { background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.12); border-radius:9px; padding:11px 13px; font-family:'DM Mono',monospace; font-size:13px; color:#e2e8f0; outline:none; transition:border-color .2s,box-shadow .2s; width:100%; appearance:none; }
-  .ep-input:focus { border-color:rgba(0,172,193,.5); box-shadow:0 0 0 3px rgba(0,172,193,.07); }
+  .ep-label { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:black; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .ep-lock-icon { font-size:10px }
+  .ep-input { background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px; font-family:'DM Mono',monospace; font-size:13px; color:#000000; outline:none; transition:border-color .2s,box-shadow .2s; width:100%; appearance:none; }
+  .ep-input:focus { border-color:black; box-shadow:none}
   .ep-input::placeholder { color:#334155; }
-  .ep-input.locked { background:rgba(7,15,30,.9); color:#475569; cursor:not-allowed; border-color:rgba(148,163,184,.06); }
+  .ep-input.locked { background:#e2e8f0; color:#647; cursor:not-allowed; border-color:rgba(148,163,184,.06); }
   .ep-input.err { border-color:rgba(239,68,68,.4); }
-  .ep-input option { background:#0f172a; color:#e2e8f0; }
+  .ep-input option { background:#ffffff; color:#000000; }
   .ep-err  { font-size:10px; color:#f87171; margin-top:4px; }
   .ep-hint { font-size:10px; color:#475569; margin-top:4px; font-style:italic; }
-  .ep-locked-info { display:flex; align-items:center; gap:8px; padding:10px 13px; background:rgba(7,15,30,.9); border:1px solid rgba(148,163,184,.06); border-radius:9px; font-size:12px; color:#475569; }
+  .ep-locked-info { display:flex; align-items:center; gap:8px; padding:10px 13px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:9px; font-size:12px; color:#64748b; }
   .ep-divider { height:1px; background:rgba(148,163,184,.08); grid-column:1/-1; margin:4px 0; }
   .ep-actions { display:flex; gap:12px; margin-top:28px; }
   .ep-btn-save { flex:1; padding:13px; border:none; border-radius:10px; font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:#fff; cursor:pointer; transition:all .2s; }
   .ep-btn-save.student { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 4px 18px rgba(34,197,94,.2); }
-  .ep-btn-save.trainer { background:linear-gradient(135deg,#00ACC1,#0891b2); box-shadow:0 4px 18px rgba(0,172,193,.2); }
+  .ep-btn-save.trainer { background:blue; box-shadow:0 4px 18px rgba(0,172,193,.2); }
   .ep-btn-save:hover:not(:disabled) { filter:brightness(1.1); transform:translateY(-1px); }
   .ep-btn-save:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-  .ep-btn-cancel { padding:13px 22px; background:transparent; border:1px solid rgba(148,163,184,.18); border-radius:10px; font-family:'DM Mono',monospace; font-size:13px; color:#94a3b8; cursor:pointer; transition:all .2s; }
+  .ep-btn-cancel { padding:13px 22px; background:transparent; border:1px solid black; border-radius:10px; font-family:'DM Mono',monospace; font-size:13px; color:black; cursor:pointer; transition:all .2s; }
   .ep-btn-cancel:hover { border-color:rgba(148,163,184,.35); color:#e2e8f0; }
   .ep-success { display:flex; align-items:center; gap:10px; padding:12px 16px; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.2); border-radius:10px; font-size:13px; color:#86efac; margin-top:16px; }
   .ep-global-err { padding:12px 16px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:10px; font-size:12px; color:#f87171; margin-top:16px; line-height:1.5; }
-  .ep-pass-section { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.1); border-radius:14px; padding:20px; margin-top:8px; }
-  .ep-pass-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:16px; }
+  .ep-pass-section>div:first-child { background:#ffffff; border:1px solid black; border-radius:14px; padding:20px; margin-top:8px;  display: flex; justify-content: space-between;align-items: center;  color: #1e293b; font-weight: 600;
+ }
+  .ep-pass-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:#1d4ed8; margin-bottom:16px; }
 `;
 
 const GRAD_DEGREES  = ["B.E / B.Tech","B.Sc","B.Com","BCA","B.A","MBA","MCA","Other"];
@@ -429,7 +430,7 @@ export default function EditProfile({ profile, onBack, onProfileUpdated }) {
               onClick={() => setShowPass(p => !p)}
             >
               <span>🔑 Change Password</span>
-              <span style={{ fontSize:11, color:"#475569" }}>{showPass ? "▲ Hide" : "▼ Expand"}</span>
+              <span style={{ fontSize:11, color:"black" }}>{showPass ? "▲ Hide" : "▼ Expand"}</span>
             </div>
             {showPass && (
               <div className="ep-grid2">
